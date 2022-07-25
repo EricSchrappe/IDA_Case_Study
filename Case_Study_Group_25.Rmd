@@ -1,0 +1,83 @@
+---
+title: "Case_Study_Group_25"
+output: html_document
+date: "2022-07-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Include Packages
+```{r}
+if (!require(install.load)){
+  install.packages("install.load")
+}
+library(install.load)
+install_load("tidyverse")
+```
+
+# Load the required datasets for the analysis
+
+Our approach divided into several step in order to select the relevant data sets to answer our analysis question:
+1. Step: We read our problem statement to obtain a deeper understanding of the task at hand
+2. Step: After the initial read through, we highlighted import variable, which will affect our analysis:
+         a. Problematic vehicle type => Type 11
+         b. Installed engine => K1DI1
+         c. Production date >= 21.09.2010 & <= 04.09.2012
+         d. User-defined radius of max. 80km around Berlin for registered cars
+         e. Defective vehicle = Each individual part OR component OR entire vehicle is marked as defective
+3. Step: Obtaining an initial local overview of the provided files to get familiar with the file structure
+4. Step: Selecting the relevant data sets for our analysis:
+         a. Data tables
+            - Fahrzeug_OEM1_Typ11.csv => Problematic vehicle type
+            - Komponente_K1DI1.csv => Installed engine
+            - Einzelteil_T01.txt => Individual part of installed engine
+            - Einzelteil_T02.txt => Individual part of installed engine
+            - Einzelteil_T05.csv => Individual part of installed engine
+            - Einzelteil_T06.csv => Individual part of installed engine
+            - Zulassungen_alle_Fahrzeuge.csv => All registered cars
+            - Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv => Lat & Long for the regions in which the cars where registered
+         b. Junction tables
+            - Bestandteile_Fahrzeuge_OEM_Typ11.csv => Problematic vehicle type
+            - Bestandteile_Komponente_K1DI1.csv => Installed engine
+5. Step: Identifying the connections between the different tables + possible data size optimization based on the highlighted variable and relationships
+![Data sets Relationships](Dataset_relationships.jpeg){width:80%}
+6. Step: Since we are only working with flat files (CSV & TXT), we load the identified data sets with the R package "readr" (included in the R package "tidyverse") to increase speed and efficiency
+
+```{r}
+# Creating a path variable to import the multiple data sets more easily
+path <- "/Users/ericschrappe/Documents/Uni/Master/TU-Berlin/4. Semester/Introduction to Data Analytics/Case_Study"
+
+# Improvements
+# 1. Check the separator before loading the entire data set
+
+
+# Relevant CSV file for the identified vehicle type
+rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE)
+
+# Junction table for relationship between vehicle and component
+# Based on problem statement, table size and number of dimensions was reduced to save memory space
+junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE) %>% 
+  select("ID_Motor", "ID_Fahrzeug") %>% 
+  filter(str_detect(ID_Motor, "^K1DI1"))
+
+# Relevant CSV file for the identified component type
+# Structure of the table needed to be adjusted since each unique column was repeated after a certain amount of observations
+# Each row included one complete observation and NAs for remaining columns
+# In addition, only the specified time range was selected
+rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI1.csv")) %>% 
+  mutate(ID_Motor = coalesce(ID_Motor.x, ID_Motor.y, ID_Motor)) %>%
+  mutate(Produktionsdatum = coalesce(Produktionsdatum.x, Produktionsdatum.y, Produktionsdatum)) %>%
+  mutate(Herstellernummer = coalesce(Herstellernummer.x, Herstellernummer.y, Herstellernummer)) %>%
+  mutate(Werksnummer = coalesce(Werksnummer.x, Werksnummer.y, Werksnummer)) %>%
+  mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y, Fehlerhaft)) %>%
+  mutate(Fehlerhaft_Datum = coalesce(Fehlerhaft_Datum.x, Fehlerhaft_Datum.y, Fehlerhaft_Datum)) %>%
+  mutate(Fehlerhaft_Fahrleistung = coalesce(Fehlerhaft_Fahrleistung.x, Fehlerhaft_Fahrleistung.y, Fehlerhaft_Fahrleistung)) %>%
+  select("ID_Motor", "Produktionsdatum", "Herstellernummer", "Werksnummer", "Fehlerhaft", "Fehlerhaft_Datum", "Fehlerhaft_Fahrleistung") %>% 
+  filter(Produktionsdatum >= "2010-09-21" & Produktionsdatum <= "2012-09-04")
+
+
+```
+
+
