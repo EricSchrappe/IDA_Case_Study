@@ -77,7 +77,41 @@ rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI
   select("ID_Motor", "Produktionsdatum", "Herstellernummer", "Werksnummer", "Fehlerhaft", "Fehlerhaft_Datum", "Fehlerhaft_Fahrleistung") %>% 
   filter(Produktionsdatum >= "2010-09-21" & Produktionsdatum <= "2012-09-04")
 
+# Junction table for relationship between component and individual part
+junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv"))
+
+# Relevant files for individual parts
+# Need to increase the size of the connection buffer in order to load the TXT-file properly
+
+Sys.setenv("VROOM_CONNECTION_SIZE" = "5000000")
+Sys.getenv("VROOM_CONNECTION_SIZE")
+rval_part_t1 <- read_tsv(file.path(path, "Data/Einzelteil/Einzelteil_T01.txt")) %>% 
+  filter(Fehlerhaft == 1)
+
+rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv")) %>% 
+  mutate(ID_T05 = coalesce(ID_T05.x, ID_T05.y)) %>% 
+  mutate(Produktionsdatum = coalesce(Produktionsdatum.x, Produktionsdatum.y)) %>%
+  mutate(Herstellernummer = coalesce(Herstellernummer.x, Herstellernummer.y)) %>%
+  mutate(Werksnummer = coalesce(Werksnummer.x, Werksnummer.y)) %>%
+  mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
+  mutate(Fehlerhaft_Datum = coalesce(Fehlerhaft_Datum.x, Fehlerhaft_Datum.y)) %>%
+  mutate(Fehlerhaft_Fahrleistung = coalesce(Fehlerhaft_Fahrleistung.x, Fehlerhaft_Fahrleistung.y)) %>%
+  select("ID_T05", "Herstellernummer", "Werksnummer", "Fehlerhaft") %>%
+  filter(Fehlerhaft == 1)
+
+rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv")) %>% 
+  select("ID_T06", "Herstellernummer", "Werksnummer", "Fehlerhaft") %>%
+  filter(Fehlerhaft == 1)
+
+# Relevant file for car registration
+# Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
+rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv")) %>% 
+  filter(str_detect(IDNummer, "^11-") & Zulassung >= "2010-09-21")
+
+# Relevant file for geographical data
+rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"))
 
 ```
+
 
 
