@@ -83,35 +83,95 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
 # Relevant files for individual parts
 # Need to increase the size of the connection buffer in order to load the TXT-file properly
 
-Sys.setenv("VROOM_CONNECTION_SIZE" = "5000000")
-Sys.getenv("VROOM_CONNECTION_SIZE")
-rval_part_t1 <- read_tsv(file.path(path, "Data/Einzelteil/Einzelteil_T01.txt")) %>% 
-  filter(Fehlerhaft == 1)
+#Sys.setenv("VROOM_CONNECTION_SIZE" = "999999999")
+#Sys.getenv("VROOM_CONNECTION_SIZE")
+#setwd(file.path(path, "Data/Einzelteil/"))
+#getwd()
+#rval_part_t2 <- re("Einzelteil_T02.txt") %>% 
+  #select("ID_T02.x", "ID_T02.y", "Fehlerhaft.x", "Fehlerhaft.y")
+  #mutate(ID_T02 = coalesce(ID_T02.x, ID_T02.y)) %>% 
+  #mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
+  #select("ID_T02", "Fehlerhaft") %>%
+  #filter(Fehlerhaft == 1)
 
-rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv")) %>% 
+#setwd(path)
+#getwd()
+rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE) %>%
+  select("ID_T05.x", "ID_T05.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
   mutate(ID_T05 = coalesce(ID_T05.x, ID_T05.y)) %>% 
-  mutate(Produktionsdatum = coalesce(Produktionsdatum.x, Produktionsdatum.y)) %>%
-  mutate(Herstellernummer = coalesce(Herstellernummer.x, Herstellernummer.y)) %>%
-  mutate(Werksnummer = coalesce(Werksnummer.x, Werksnummer.y)) %>%
   mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
-  mutate(Fehlerhaft_Datum = coalesce(Fehlerhaft_Datum.x, Fehlerhaft_Datum.y)) %>%
-  mutate(Fehlerhaft_Fahrleistung = coalesce(Fehlerhaft_Fahrleistung.x, Fehlerhaft_Fahrleistung.y)) %>%
-  select("ID_T05", "Herstellernummer", "Werksnummer", "Fehlerhaft") %>%
+  select("ID_T05", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
-rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv")) %>% 
-  select("ID_T06", "Herstellernummer", "Werksnummer", "Fehlerhaft") %>%
+rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), col_names=TRUE) %>% 
+  select("ID_T06", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
 # Relevant file for car registration
 # Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
-rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv")) %>% 
+rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE) %>% 
   filter(str_detect(IDNummer, "^11-") & Zulassung >= "2010-09-21")
 
 # Relevant file for geographical data
-rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"))
+rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE)
 
 ```
 
+# Perform Data Exploration on loaded data sets
 
+1. Step: Check whether any column of the data sets includes missing values
+2. Step: Investigate the columns with missing value if applicable
+3. Step: Adjust the data sets if necessary
+
+
+```{r}
+# Function to check each column of the given data set for missing values
+na_test <- function(x){
+  
+  missing_values <- sapply(x, function(col) any(is.na(col)))
+  if(any(missing_values)){
+    paste("There are missing values for in column: ", names(which(missing_values)))
+  }else {
+    paste("No columns with missing values")
+  }
+}
+
+# List of all variable to increase the efficiency for checking missing values
+var_list <- list(vehicle = rval_vehicle_data,
+                 junction_vehicle = junction_table_vehicle,
+                 junction_component = junction_table_component,
+                 components = rval_component_data, 
+                 parts_t5 = rval_part_t5, 
+                 parts_t6 = rval_part_t6, 
+                 geo_data = rval_geo_data,
+                 car_registrations = rval_car_registrations)
+
+# 1. Step
+# Applying missing value function to each of the variables
+lapply(var_list, na_test)
+
+# 2. Step
+# Investigating tables with missing values
+vehicle_data_missing_values <- head(rval_vehicle_data[is.na(rval_vehicle_data$Fehlerhaft_Datum),], 5)
+component_data_missing_values <- head(rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),], 5)
+geo_data_missing_values <- rval_geo_data[is.na(rval_geo_data$Gemeinde),]
+
+# => For the vehicle & component data, we observed that the missing values only occur when the vehicle / component isn't defective
+# => Since these cases are still relevant for our analysis, we will keep them at this point of our analysis
+# => Regarding the one missing value in the geo data table, we will exclude this observation from our analysis since it seems to not have a significant impact
+
+# 3. Step
+# Adjust data sets based on observations
+rval_geo_data <- rval_geo_data %>% drop_na()
+
+
+
+
+
+
+
+
+
+
+```
 
