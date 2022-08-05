@@ -119,6 +119,8 @@ rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.
 
 # Perform Data Exploration on loaded data sets
 
+a. Investigating missing values
+
 1. Step: Check whether any column of the data sets includes missing values
 2. Step: Investigate the columns with missing value if applicable
 3. Step: Adjust the data sets if necessary
@@ -152,9 +154,12 @@ lapply(var_list, na_test)
 
 # 2. Step
 # Investigating tables with missing values
-vehicle_data_missing_values <- head(rval_vehicle_data[is.na(rval_vehicle_data$Fehlerhaft_Datum),], 5)
-component_data_missing_values <- head(rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),], 5)
+vehicle_data_missing_values <- rval_vehicle_data[is.na(rval_vehicle_data$Fehlerhaft_Datum),]
+print.data.frame(head(vehicle_data_missing_values, 2))
+component_data_missing_values <- rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),]
+print.data.frame(head(component_data_missing_values, 2))
 geo_data_missing_values <- rval_geo_data[is.na(rval_geo_data$Gemeinde),]
+print.data.frame(head(geo_data_missing_values, 2))
 
 # => For the vehicle & component data, we observed that the missing values only occur when the vehicle / component isn't defective
 # => Since these cases are still relevant for our analysis, we will keep them at this point of our analysis
@@ -166,10 +171,49 @@ rval_geo_data <- rval_geo_data %>% drop_na()
 
 
 
+```
+
+# Perform Data Exploration on loaded data sets
+
+b. Investigating data types and potentially converting them
+
+1. Step: Create a function that returns the data type for each column of the given dataframe
+2. Step: Apply the previouly developed function to all relevatn dataframes
+3. Step: Evaluate whether the data type of a column needs to be transformed
 
 
+```{r}
 
+# 1. Step
+data_types <- function(x){
+  sapply(x, class)
+}
 
+# 2. Step
+lapply(var_list, data_types)
+
+# => Most of the columns already are already available in the correct data type
+# => However, to simplify the further analysis, we will convert the column "Fehlerhaft" of type "numeric" to type "logic" since it only provide us with the information whether a vehicle, component or part is defective and thereby a "logic" data type is better suited
+# => In addition the lat and long values need to be adjusted to represent the actual coordinates
+
+# 3. Step
+
+## Convert logical data type
+convert_data_type_logical <- function(dataframe){
+  print(head(dataframe, 1))
+  if("Fehlerhaft" %in% colnames(dataframe)){
+    dataframe$Fehlerhaft <- as.logical(dataframe$Fehlerhaft)
+  }
+  return(dataframe)
+}
+
+var_list <- lapply(var_list, convert_data_type_logical)
+
+# => Only use data from inside the list, because the updates are only reflected in their.
+
+## Ensure that lat and long data is in right length
+var_list[["geo_data"]]$Laengengrad <- as.numeric(format(var_list[["geo_data"]]$Laengengrad, digits = 8))
+var_list[["geo_data"]]$Breitengrad <- as.numeric(format(var_list[["geo_data"]]$Breitengrad, digits = 8))
 
 
 
