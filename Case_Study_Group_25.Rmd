@@ -54,7 +54,8 @@ path <- "/Users/ericschrappe/Documents/Uni/Master/TU-Berlin/4. Semester/Introduc
 
 
 # Relevant CSV file for the identified vehicle type
-rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE)
+rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE) %>% 
+  select("ID_Fahrzeug", "Fehlerhaft")
 
 # Junction table for relationship between vehicle and component
 # Based on problem statement, table size and number of dimensions was reduced to save memory space
@@ -74,11 +75,12 @@ rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI
   mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y, Fehlerhaft)) %>%
   mutate(Fehlerhaft_Datum = coalesce(Fehlerhaft_Datum.x, Fehlerhaft_Datum.y, Fehlerhaft_Datum)) %>%
   mutate(Fehlerhaft_Fahrleistung = coalesce(Fehlerhaft_Fahrleistung.x, Fehlerhaft_Fahrleistung.y, Fehlerhaft_Fahrleistung)) %>%
-  select("ID_Motor", "Produktionsdatum", "Herstellernummer", "Werksnummer", "Fehlerhaft", "Fehlerhaft_Datum", "Fehlerhaft_Fahrleistung") %>% 
+  select("ID_Motor", "Produktionsdatum", "Fehlerhaft") %>% 
   filter(Produktionsdatum >= "2010-09-21" & Produktionsdatum <= "2012-09-04")
 
 # Junction table for relationship between component and individual part
-junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv"))
+junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv")) %>% 
+  select(-c(...1))
 
 # Relevant files for individual parts
 # Need to increase the size of the connection buffer in order to load the TXT-file properly
@@ -110,10 +112,12 @@ rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), 
 # Relevant file for car registration
 # Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
 rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE) %>% 
+  select(-c(...1)) %>% 
   filter(str_detect(IDNummer, "^11-") & Zulassung >= "2010-09-21")
 
 # Relevant file for geographical data
-rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE)
+rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE) %>% 
+  select(-c(...1, X))
 
 ```
 
@@ -154,10 +158,10 @@ lapply(var_list, na_test)
 
 # 2. Step
 # Investigating tables with missing values
-vehicle_data_missing_values <- rval_vehicle_data[is.na(rval_vehicle_data$Fehlerhaft_Datum),]
-print.data.frame(head(vehicle_data_missing_values, 2))
-component_data_missing_values <- rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),]
-print.data.frame(head(component_data_missing_values, 2))
+#vehicle_data_missing_values <- rval_vehicle_data[is.na(rval_vehicle_data$Fehlerhaft_Datum),]
+#print.data.frame(head(vehicle_data_missing_values, 2))
+#component_data_missing_values <- rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),]
+#print.data.frame(head(component_data_missing_values, 2))
 geo_data_missing_values <- rval_geo_data[is.na(rval_geo_data$Gemeinde),]
 print.data.frame(head(geo_data_missing_values, 2))
 
@@ -200,7 +204,6 @@ lapply(var_list, data_types)
 
 ## Convert logical data type
 convert_data_type_logical <- function(dataframe){
-  print(head(dataframe, 1))
   if("Fehlerhaft" %in% colnames(dataframe)){
     dataframe$Fehlerhaft <- as.logical(dataframe$Fehlerhaft)
   }
@@ -215,6 +218,85 @@ var_list <- lapply(var_list, convert_data_type_logical)
 var_list[["geo_data"]]$Laengengrad <- as.numeric(format(var_list[["geo_data"]]$Laengengrad, digits = 8))
 var_list[["geo_data"]]$Breitengrad <- as.numeric(format(var_list[["geo_data"]]$Breitengrad, digits = 8))
 
+
+
+```
+# Perform Data Exploration on loaded data sets
+
+c. Remove potential duplicate data observations
+
+1. Step: Create a function that determines whether duplicate exists in the datasets
+2. Step: Apply the function to all relevant datasets
+3. Step: Remove potential duplicates
+
+```{r}
+
+# 1. Step
+duplicate_test <- function(x){
+  
+}
+
+
+
+
+```
+
+
+# Perform Data Exploration on loaded data sets
+
+d. Graphs for the important features
+
+1. Step: Create a function, which first checks whether the relevant information is included in the dataset, here the column "Fehlerhaft". Afterwards make sure to exclude all datasets where the unique number of observations = 1.
+2. Step: Apply the created function the list of variables
+
+```{r}
+# 1. Step
+plot_defective <- function(dataframe){
+  if("Fehlerhaft" %in% colnames(dataframe)){
+    if(unique(dataframe[["Fehlerhaft"]]) == FALSE){
+      ggplot(dataframe, aes(x=Fehlerhaft)) +
+      geom_bar() + 
+      geom_text(aes(label=..count..), stat="count", vjust= 1.5, colour= "white")
+    }
+  }
+}
+
+# 2. Step
+lapply(var_list, plot_defective)
+
+
+```
+
+# Creating a single dataset
+
+1. Step: Join the junction table the respective data tables to obtain the ID relevant to join with other data tables
+2. Step: Connect the smallest unit to the next higher unit, Parts => Components
+3. Step: Join the component & part data with the vehicle data and create a column that indicates whether one of these units is defective
+
+
+```{r}
+
+# 1. Step
+joined_vehicles <- var_list[["vehicle"]] %>% 
+                    inner_join(var_list[["junction_vehicle"]], by= c("ID_Fahrzeug" = "ID_Fahrzeug"))
+
+joined_components <- var_list[["components"]] %>% 
+                      inner_join(var_list[["junction_component"]], by= c("ID_Motor" = "ID_K1DI1"), suffix= c("", "_junction"))
+
+# 2. Step
+## Don't forget to also join T1, T2
+joined_components_parts <- joined_components %>% 
+                              left_join(var_list[["parts_t5"]], by=c("ID_T5" = "ID_T05"), suffix=c("_component", "_T5")) %>% 
+                              left_join(var_list[["parts_t6"]], by=c("ID_T6" = "ID_T06"), suffix=c("_component", "_T6")) %>% 
+                              mutate(Fehlerhaft_T5 = replace_na(Fehlerhaft_T5, FALSE)) %>%
+                              mutate(Fehlerhaft = replace_na(Fehlerhaft, FALSE))
+# 3. Step                        
+defective_vehicle_to_parts <- joined_vehicles %>% 
+                                inner_join(joined_components_parts, by=c("ID_Motor" = "ID_Motor"), suffix=c("_vehicle", "")) %>% 
+                                mutate(Defect = ifelse(Fehlerhaft_vehicle == TRUE, TRUE,
+                                                       ifelse(Fehlerhaft_component == TRUE, TRUE,
+                                                              ifelse(Fehlerhaft_T5 == TRUE | Fehlerhaft == TRUE, TRUE, FALSE)))) %>% 
+                                filter(Defect == TRUE)
 
 
 ```
