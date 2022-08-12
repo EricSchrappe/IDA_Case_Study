@@ -14,7 +14,7 @@ if (!require(install.load)){
   install.packages("install.load")
 }
 library(install.load)
-install_load("tidyverse")
+install_load("tidyverse", "geosphere")
 ```
 
 # Load the required datasets for the analysis
@@ -54,12 +54,12 @@ path <- "/Users/ericschrappe/Documents/Uni/Master/TU-Berlin/4. Semester/Introduc
 
 
 # Relevant CSV file for the identified vehicle type
-rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE) %>% 
+rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names= TRUE, trim_ws= TRUE) %>% 
   select("ID_Fahrzeug", "Fehlerhaft")
 
 # Junction table for relationship between vehicle and component
 # Based on problem statement, table size and number of dimensions was reduced to save memory space
-junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE) %>% 
+junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select("ID_Motor", "ID_Fahrzeug") %>% 
   filter(str_detect(ID_Motor, "^K1DI1"))
 
@@ -67,7 +67,7 @@ junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_
 # Structure of the table needed to be adjusted since each unique column was repeated after a certain amount of observations
 # Each row included one complete observation and NAs for remaining columns
 # In addition, only the specified time range was selected
-rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI1.csv")) %>% 
+rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   mutate(ID_Motor = coalesce(ID_Motor.x, ID_Motor.y, ID_Motor)) %>%
   mutate(Produktionsdatum = coalesce(Produktionsdatum.x, Produktionsdatum.y, Produktionsdatum)) %>%
   mutate(Herstellernummer = coalesce(Herstellernummer.x, Herstellernummer.y, Herstellernummer)) %>%
@@ -79,7 +79,7 @@ rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI
   filter(Produktionsdatum >= "2010-09-21" & Produktionsdatum <= "2012-09-04")
 
 # Junction table for relationship between component and individual part
-junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv")) %>% 
+junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1))
 
 # Relevant files for individual parts
@@ -87,8 +87,14 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
 
 #Sys.setenv("VROOM_CONNECTION_SIZE" = "999999999")
 #Sys.getenv("VROOM_CONNECTION_SIZE")
-#setwd(file.path(path, "Data/Einzelteil/"))
-#getwd()
+
+#txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
+#txt_t2 <- gsub('\t\'[0-9]+\'\\s', '\n', txt_t2)
+#txt_t2 <- gsub('\n\\s', '\n', txt_t2)
+#txt_t2 <- gsub('[ \t]+', ',', txt_t2)
+#txt_t2 <- substring(txt_t2, 1, nchar(txt_t2)-1)
+#rval_part_t2 <- read_delim(I(txt_t2), delim = ",", trim_ws = TRUE)
+
 #rval_part_t2 <- re("Einzelteil_T02.txt") %>% 
   #select("ID_T02.x", "ID_T02.y", "Fehlerhaft.x", "Fehlerhaft.y")
   #mutate(ID_T02 = coalesce(ID_T02.x, ID_T02.y)) %>% 
@@ -98,25 +104,25 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
 
 #setwd(path)
 #getwd()
-rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE) %>%
+rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE, trim_ws= TRUE) %>%
   select("ID_T05.x", "ID_T05.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
   mutate(ID_T05 = coalesce(ID_T05.x, ID_T05.y)) %>% 
   mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
   select("ID_T05", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
-rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), col_names=TRUE) %>% 
+rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select("ID_T06", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
 # Relevant file for car registration
 # Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
-rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE) %>% 
+rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1)) %>% 
   filter(str_detect(IDNummer, "^11-") & Zulassung >= "2010-09-21")
 
 # Relevant file for geographical data
-rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE) %>% 
+rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1, X))
 
 ```
@@ -241,10 +247,30 @@ duplicate_test <- function(x){
 
 ```
 
+# Perform Data Exploration on loaded data sets
+
+d. Trim the data
+
+1. Step: Since some of the community names had numbers at the end of their name, they needed to be removed. This applies for the data sets "car registrations" as well as "geo data"
+
+
+```{r}
+# 1. Step
+var_list[["car_registrations"]][["Gemeinden"]] <- gsub('[0-9]+', '', var_list[["car_registrations"]][["Gemeinden"]])
+
+"HALLE" %in% var_list[["car_registrations"]][["Gemeinden"]]
+"HALLE1" %in% var_list[["car_registrations"]][["Gemeinden"]]
+
+var_list[["geo_data"]][["Gemeinde"]] <- gsub('[0-9]+', '', var_list[["geo_data"]][["Gemeinde"]])
+
+"HALLE" %in% var_list[["geo_data"]][["Gemeinde"]]
+"HALLE1" %in% var_list[["geo_data"]][["Gemeinde"]]
+```
+
 
 # Perform Data Exploration on loaded data sets
 
-d. Graphs for the important features
+e. Graphs for the important features
 
 1. Step: Create a function, which first checks whether the relevant information is included in the dataset, here the column "Fehlerhaft". Afterwards make sure to exclude all datasets where the unique number of observations = 1.
 2. Step: Apply the created function the list of variables
@@ -264,7 +290,6 @@ plot_defective <- function(dataframe){
 # 2. Step
 lapply(var_list, plot_defective)
 
-
 ```
 
 # Creating a single dataset
@@ -272,6 +297,8 @@ lapply(var_list, plot_defective)
 1. Step: Join the junction table the respective data tables to obtain the ID relevant to join with other data tables
 2. Step: Connect the smallest unit to the next higher unit, Parts => Components
 3. Step: Join the component & part data with the vehicle data and create a column that indicates whether one of these units is defective
+4. Step: Join the car registrations and geo data to obtain the geographical coordinates for the communities
+5. Step: Bring everything together in one dataframe and calculate the distance between the communities and the center of Berlin (Long/Lat obtained from this website: https://www.umingo.de/deutschland/berlin/)
 
 
 ```{r}
@@ -298,6 +325,17 @@ defective_vehicle_to_parts <- joined_vehicles %>%
                                                               ifelse(Fehlerhaft_T5 == TRUE | Fehlerhaft == TRUE, TRUE, FALSE)))) %>% 
                                 filter(Defect == TRUE)
 
+# 4.Step
+car_registration_with_geo <- var_list[["car_registrations"]] %>% 
+                              left_join(var_list[["geo_data"]], by= c("Gemeinden" = "Gemeinde"))
+
+# 5. Step
+entire_defective_data <- defective_vehicle_to_parts %>% 
+                          inner_join(car_registration_with_geo, by = c("ID_Fahrzeug" = "IDNummer")) %>% 
+                          mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000)
+
+
+ 
 
 ```
 
