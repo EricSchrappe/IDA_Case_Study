@@ -21,6 +21,30 @@ init <- function(){
     install.packages("knitr")
     library(readr)
   }
+  if(!require('here')){
+    install.packages("here")
+    library(here)
+  }
+  if(!require('gamlss')){
+    install.packages("gamlss")
+    library(gamlss)
+  }
+  if(!require('gamlss.dist')){
+    install.packages("gamlss.dist")
+    library(gamlss.dist)
+  }
+  if(!require('gamlss.add')){
+    install.packages("gamlss.add")
+    library(gamlss.add)
+  }
+  if(!require('ggplot2')){
+    install.packages("ggplot2")
+    library(ggplot2)
+  }
+  if(!require('fitdistrplus')){
+    install.packages("fitdistrplus")
+    library(fitdistrplus)
+  }
 }
 
 init()
@@ -104,22 +128,80 @@ test <- distance_in_km(c(13,8), c(13.02, 8.02))
 # Aufgabe 1
 # Create distribution for the logistics delay of component „K7”
 #################################################################################################################################
-setwd("~/Rproject_IDA/Data/Logistikverzug")
-komponenten_k7 <- read.csv2("Komponente_K7.csv")
+
+# Import data which includes production date
+komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
 nrow(komponenten_k7)
 
-
-logistikverzug_k7 <- read.csv("Logistikverzug_K7.csv")
+# Import data which includes receiving date
+logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
 nrow(logistikverzug_k7)
 
-
+# Merge tables by IDNummber (id number)
 res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
-# Issued one day after production date -> production date + 1
-res$verspaetung_in_tagen <- as.integer((as.Date(res$Wareneingang) - (as.Date(res$Produktionsdatum)+1)))
-head(res,20)
-logistics_delay <- data.frame(res$IDNummer, res$Produktionsdatum, res$Wareneingang, res$verspaetung_in_tagen)
-hist(logistics_delay$res.verspaetung_in_tagen,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
 
+
+# Issued one day after production date -> production date + 1
+res$VerspaetungInTagen <- as.integer((as.Date(res$Wareneingang) - (as.Date(res$Produktionsdatum)+1)))
+# TO DO: There is a cleaner way of doing this (reduce amount of information)
+logistics_delay <- data.frame(res$IDNummer, res$Produktionsdatum, res$Wareneingang, res$VerspaetungInTagen)
+
+# Draw histogram to see the distribution of how many components have been delivered with how much delay
+hist(logistics_delay$res.VerspaetungInTagen,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
+
+fit <- fitDist(y = logistics_delay$res.VerspaetungInTagen, k = 2, type = "realline", trace = TRUE, try.gamlss = TRUE)
+summary(fit)
+print(fit)
+plot(fit)
+
+ggplot(data = logistics_delay, aes(x = res.VerspaetungInTagen)) + geom_histogram() + geom_density(data = data.frame(fitted(fit)), aes(x = fitted.fit.))
+ggplot(data = data.frame(fitted(fit)), aes(x = fitted.fit.)) + geom_freqpoly(bins = 3)
+
+# RESULT:
+#
+# Family:  c("JSUo", "Johnson SU original") 
+# 
+# Call:  gamlssML(formula = y, family = DIST[i]) 
+# 
+# Fitting method: "nlminb" 
+# 
+# 
+# Coefficient(s):
+#   Estimate   Std. Error     t value   Pr(>|t|)    
+# eta.mu     6.00000e+00  1.01858e-06 5890581.918 < 2.22e-16 ***
+#   eta.sigma -2.30913e+01  6.32202e-03   -3652.523 < 2.22e-16 ***
+#   eta.nu    -4.37235e-01  1.84998e-03    -236.346 < 2.22e-16 ***
+#   eta.tau   -2.93560e+00  1.33468e-03   -2199.486 < 2.22e-16 ***
+#   ---
+#   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+# 
+# Degrees of Freedom for the fit: 4 Residual Deg. of Freedom   306486 
+# Global Deviance:     -2708620 
+# AIC:     -2708610 
+# SBC:     -2708570 
+
+histDist(y = logistics_delay$res.VerspaetungInTagen, family = "JSUo")
+
+fit2 <- fitdist(data = logistics_delay$res.VerspaetungInTagen, distr = "weibull", method = "mle")
+summary(fit2)
+plot(fit2)
+
+# 3rd approach (https://www.youtube.com/watch?v=srsTC9SXajw)
+# PLOT
+descdist(data = logistics_delay$res.VerspaetungInTagen, discrete = TRUE)
+# FIT
+negativeBi__ <- fitdist(logistics_delay$res.VerspaetungInTagen, "nbinom")
+plot(negativeBi__)
+# ESTIMATE
+print(negativeBi__)
+
+# PLOT
+descdist(data = logistics_delay$res.VerspaetungInTagen, discrete = FALSE)
+# FIT
+lNorm__ <- fitdist(logistics_delay$res.VerspaetungInTagen, "lnorm")
+plot(lNorm__)
+# ESTIMATE
+print(lNorm__)
 
 ################################################################################################################################
 # Aufgabe 4
