@@ -353,46 +353,25 @@ str(alle_zulassungen)
 
 ################################################################################################################################
 # Aufgabe 6
-# How many of the components T16 ended up in vehicles registered in Adelshofen?6.
+# On 11.08.2010 there was a hit and run accident. 
+# There is no trace of the license plate of the car involved in the accident. 
+# The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
 #################################################################################################################################
 
-
-setwd("~/Rproject_IDA/Data/Einzelteil")
-x <- read.table("Einzelteil_T02.txt", header = FALSE, sep = "|")         
-# Aufgabe 6
+# Startdatenpunkt
 gesuchte_karosserie <- 'K5-112-1122-79'
 
-# Pfad setzen -> CSV einlesen alle Zulassungen
-setwd("~/Rproject_IDA/Data/Zulassungen")
-alle_zulassungen <- read.csv2("Zulassungen_alle_Fahrzeuge.csv")
+# CSV einlesen alle Zulassungen
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
 
-# Pfad setzen -> CSV einlesen Bestandteile Fahrzeuge OEM1
-setwd("~/Rproject_IDA/Data/Fahrzeug")
-Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2("Bestandteile_Fahrzeuge_OEM1_Typ12.csv")
+# CSV einlesen Bestandteile Fahrzeuge OEM1
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
 
-# In Bestandteile Fahrzeuge OEM1 gesuchte Karosserie suchen
-found <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
-  filter(Bestandteile_Fahrzeuge_OEM1_Typ12$ID_Karosserie == gesuchte_karosserie)
+# Filtern nach gesuchter Karosserie und weitere Suche in Zulassungen
+result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
+  filter(ID_Karosserie == gesuchte_karosserie) %>%
+  inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
 
-# checken ob empty -> function erstellen zum abfragen -> TODO: umcoden
-if(found!=0){
-  filter_function_karosserie <- function(suche){
-    Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
-      filter(Bestandteile_Fahrzeuge_OEM1_Typ12$ID_Karosserie == suche)
-  }
-}else{
-  sprintf("Die gesuchte Karosserie [%s] wurde in den Datensätzen nicht gefunden", gesuchte_karosserie)
-}
-
-found <- filter_function_karosserie(Bestandteile_Fahrzeuge_OEM1_Typ12)
-search_IDNummer <- noquote(found$ID_Fahrzeug)
-
-search_in_zulassung <- function(x){
-  alle_zulassungen %>%
-    filter(alle_zulassungen$IDNummer == x)
-}
-
-result_row <- search_in_zulassung(search_IDNummer)
-sprintf("Die gesuchte Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",gesuchte_karosserie,result_row$Zulassung, result_row$Gemeinden )
+sprintf("Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",result_row["IDNummer"], gesuchte_karosserie, result_row["Zulassung"], result_row["Gemeinden"] )
 
 
