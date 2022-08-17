@@ -86,7 +86,8 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
 # Need to increase the size of the connection buffer in order to load the TXT-file properly
 
 #Sys.setenv("VROOM_CONNECTION_SIZE" = "999999999")
-#Sys.getenv("VROOM_CONNECTION_SIZE")
+
+#txt einlesen mit line break symbol
 
 #txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
 #txt_t2 <- gsub('\t\'[0-9]+\'\\s', '\n', txt_t2)
@@ -118,12 +119,12 @@ rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), 
 # Relevant file for car registration
 # Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
 rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
-  select(-c(...1)) %>% 
-  filter(str_detect(IDNummer, "^11-") & Zulassung >= "2010-09-21")
+  select(-c(...1, Zulassung)) %>% 
+  filter(str_detect(IDNummer, "^11-"))
 
 # Relevant file for geographical data
 rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
-  select(-c(...1, X))
+  select(-c(...1, X, Postleitzahl))
 
 ```
 
@@ -279,7 +280,7 @@ e. Graphs for the important features
 # 1. Step
 plot_defective <- function(dataframe){
   if("Fehlerhaft" %in% colnames(dataframe)){
-    if(unique(dataframe[["Fehlerhaft"]]) == FALSE){
+    if(length(dataframe[["Fehlerhaft"]]) != length(which(dataframe[["Fehlerhaft"]] == TRUE))){
       ggplot(dataframe, aes(x=Fehlerhaft)) +
       geom_bar() + 
       geom_text(aes(label=..count..), stat="count", vjust= 1.5, colour= "white")
@@ -332,9 +333,13 @@ car_registration_with_geo <- var_list[["car_registrations"]] %>%
 # 5. Step
 entire_defective_data <- defective_vehicle_to_parts %>% 
                           inner_join(car_registration_with_geo, by = c("ID_Fahrzeug" = "IDNummer")) %>% 
-                          mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000)
+                          mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000) 
 
+write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 
+entire_defective_data %>% 
+        group_by(Gemeinden, Laengengrad, Breitengrad) %>% 
+        summarise(Anzahl = n())
  
 
 ```

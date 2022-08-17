@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap');
+
+html, body{
+  height: 100%;
+  width: 100%;
+  background-color: white;
+  font-family: "Source Sans Pro", sans-serif;
+}
+
+.panel_padding{
+  padding-left: 15px;
+}
+
+.allround_padding{
+  padding: 15px 10px 15px 10px;
+}
