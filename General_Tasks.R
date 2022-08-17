@@ -342,6 +342,7 @@ print(fitfweibull)
 ################################################################################################################################
 # Aufgabe 4
 # Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have?
+# Put your answers into a table which is integrated into your Markdown document and describe the characteristics of the data type(s).
 #################################################################################################################################
 
 # Pfad setzen -> CSV einlesen alle Zulassungen
@@ -350,6 +351,39 @@ alle_zulassungen <- read.csv2("Zulassungen_alle_Fahrzeuge.csv")
 print("Struktur der Table Zulassungen_alle_Fahrzeuge.csv ")
 str(alle_zulassungen)
 
+
+################################################################################################################################
+# Aufgabe 5
+# You want to publish your application. 
+# Why does it make sense to store the records on the database of a server? 
+# Why can’t you store the records on your personal computer? 
+# What is an easy way to make your application available to your customers? 
+# Please name 4 aspects.
+#################################################################################################################################
+
+## 1
+
+# Servers are optimized to make resources available remotely via the internet.
+# Thus, people from all over the world can access the data if it's on a server.
+# A server is also usually running non-stop. The data is thus available any time.
+# Nowadays usually servers are used that are managed by specialized companies.
+# A lot of challenges, like security aspects, are therefore already taken care of.
+
+## 2
+
+# Storing records on one's own computer might work for a small project where no one else is involved.
+# When other people need to have access to the data, though, we face several problems:
+# - Usually our computer does not run all the time. But maybe the data should be accessible any time.
+# - We do other things with our computer. This might impact the performance if we tried to use our computer as a server.
+# - Usually our internet connection is not that great. Just as our computer, it is not optimized to serve large amount of data to remote clients.
+# - We would need to set up security measures etc., which would probably quickly become a problem.
+
+## 3
+
+# An easy way to provide an application to customers would be to host it on a cloud service, aka a server.
+# This way, the application would be available to any customer with an internet connection over the world wide web.
+# By serving an application this way, we can scale the infrastructure up and down depending on how many users we have / expect.
+# Furthermore, we are taking advantage of the specialization of hosting companies, so that we can focus on developing our application.
 
 ################################################################################################################################
 # Aufgabe 6
