@@ -70,7 +70,7 @@ big_table <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
 logistics_delay <- data.frame(big_table$IDNummer, big_table$Produktionsdatum, big_table$Wareneingang)
 
 
-#Calculate Datediff without weekens -> help function
+#Calculate Datediff without weekends -> help function
 date_diff_excluding_wekeends <- function(x, y) {
   if(is.na(x) || is.na(y)) return(NA)
   return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
