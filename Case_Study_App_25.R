@@ -51,13 +51,14 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                    sidebarPanel(
                      numericInput("number",
                                   "Number of radii:",
-                                  value = 2,
+                                  value = 4,
                                   min = 1,
-                                  max = 50
+                                  max = 50,
+                                  step = 1
                      ),
                      sliderInput("radius",
                                  "Size of radius:",
-                                 value = 10,
+                                 value = 25,
                                  min = 1,
                                  max = 50
                      ),
@@ -93,12 +94,53 @@ server <- function(input, output) {
       dataset %>% 
         arrange(Gemeinden)
     })
+    
+    vehicles_defect <- reactive({
+      dataset %>% 
+        filter(Defect = TRUE) %>% 
+        arrange(Gemeinden)
+    })
+    
+    generate_buckets <- reactive({
+      buckets <- list()
+      for (i in 1:input$number) {
+        buckets[[i]] <- i*input$radius
+      }
+      print(buckets)
+    })
+    
 
     output$map <- renderLeaflet({
-        leaflet(data= vehicles()) %>% 
+        leaflet(data= vehicles_defect()) %>% 
           addTiles() %>% 
           setView(lng = 13.3777, lat = 52.5162, zoom = 10) %>% 
           addCircleMarkers(lng = ~ Laengengrad, lat = ~ Breitengrad)
+    })
+    
+    
+    output$bar_plot <- renderPlot({
+        df <- data.frame(Bucket = numeric(),
+                         Defective = numeric(),
+                         Non_Defective = numeric())
+        
+        for(x in generate_buckets()){
+          
+          defect_count <- vehicles() %>% 
+            filter(Distance_KM <= x & Defect == TRUE) %>% 
+            count()
+          
+          non_defect_count <- vehicles() %>% 
+            filter(Distance_KM <= x & Defect == FALSE) %>% 
+            count()
+          
+          df[nrow(df) + 1,] <- c(x, defect_count$n, non_defect_count$n)
+        }
+        
+        df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
+        print(df)
+      
+        ggplot(df, aes(x=as.factor(Bucket), y=Count, fill=Defect_Y_N))+
+          geom_bar(stat = "identity", position = "dodge")
     })
     
     output$downloadData <- downloadHandler(

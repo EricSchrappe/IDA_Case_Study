@@ -89,22 +89,26 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
 
 #txt einlesen mit line break symbol
 
-#txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
-#txt_t2 <- gsub('\t\'[0-9]+\'\\s', '\n', txt_t2)
-#txt_t2 <- gsub('\n\\s', '\n', txt_t2)
-#txt_t2 <- gsub('[ \t]+', ',', txt_t2)
-#txt_t2 <- substring(txt_t2, 1, nchar(txt_t2)-1)
-#rval_part_t2 <- read_delim(I(txt_t2), delim = ",", trim_ws = TRUE)
+txt_t1 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T01.txt"))
+txtNew_t1 <- gsub(x = txt_t1, pattern = "\\s\\|\\s\\|\\s", replacement = ",")
+txtNew_t1 <- gsub(x = txtNew_t1, pattern = "\\s", replacement = "\n")
+txtNew_t1 <- substring(txtNew_t1, 1, nchar(txtNew_t1)-1)
 
-#rval_part_t2 <- re("Einzelteil_T02.txt") %>% 
-  #select("ID_T02.x", "ID_T02.y", "Fehlerhaft.x", "Fehlerhaft.y")
-  #mutate(ID_T02 = coalesce(ID_T02.x, ID_T02.y)) %>% 
-  #mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
-  #select("ID_T02", "Fehlerhaft") %>%
-  #filter(Fehlerhaft == 1)
+rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE) 
 
-#setwd(path)
-#getwd()
+txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
+txtNew_t2 <- gsub(x = txt_t2, pattern = "\t\"[0-9]+\"\\s", replacement = "\n")
+txtNewe_t2 <- gsub(x = txtNew_t2, pattern = "\n\\s", replacement = "\n")
+txtNewer_t2 <- gsub(x = txtNewe_t2, pattern = "[ \t]+", replacement = ",")
+txtNewer_t2 <- substring(txtNewer_t2, 1, nchar(txtNewer_t2)-1)
+
+rval_part_t2 <- read_delim(I(txtNewer_t2), delim = ",", trim_ws = TRUE) %>% 
+  select("ID_T02.x", "ID_T02.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
+  mutate(ID_T02 = coalesce(ID_T02.x, ID_T02.y)) %>% 
+  mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
+  select("ID_T02", "Fehlerhaft") %>%
+  filter(Fehlerhaft == 1)
+
 rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE, trim_ws= TRUE) %>%
   select("ID_T05.x", "ID_T05.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
   mutate(ID_T05 = coalesce(ID_T05.x, ID_T05.y)) %>% 
@@ -323,8 +327,7 @@ defective_vehicle_to_parts <- joined_vehicles %>%
                                 inner_join(joined_components_parts, by=c("ID_Motor" = "ID_Motor"), suffix=c("_vehicle", "")) %>% 
                                 mutate(Defect = ifelse(Fehlerhaft_vehicle == TRUE, TRUE,
                                                        ifelse(Fehlerhaft_component == TRUE, TRUE,
-                                                              ifelse(Fehlerhaft_T5 == TRUE | Fehlerhaft == TRUE, TRUE, FALSE)))) %>% 
-                                filter(Defect == TRUE)
+                                                              ifelse(Fehlerhaft_T5 == TRUE | Fehlerhaft == TRUE, TRUE, FALSE))))
 
 # 4.Step
 car_registration_with_geo <- var_list[["car_registrations"]] %>% 
@@ -335,11 +338,32 @@ entire_defective_data <- defective_vehicle_to_parts %>%
                           inner_join(car_registration_with_geo, by = c("ID_Fahrzeug" = "IDNummer")) %>% 
                           mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000) 
 
-write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
+#write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 
-entire_defective_data %>% 
-        group_by(Gemeinden, Laengengrad, Breitengrad) %>% 
-        summarise(Anzahl = n())
+buckets <- list(25,50, 75, 100, 125)
+
+df <- data.frame(Bucket = numeric(),
+                 Defective = numeric(),
+                 Non_Defective = numeric())
+
+for(x in buckets){
+  
+  defect_count <- entire_defective_data %>% 
+                    filter(Distance_KM <= x & Defect == TRUE) %>% 
+                    count()
+
+  non_defect_count <- entire_defective_data %>% 
+                        filter(Distance_KM <= x & Defect == FALSE) %>% 
+                        count()
+ 
+  df[nrow(df) + 1,] <- c(x, defect_count$n, non_defect_count$n)
+}
+
+df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
+
+ggplot(df, aes(x=as.factor(Bucket), y=Count, fill=Defect_Y_N))+
+          geom_bar(stat = "identity", position = "dodge")
+
  
 
 ```
