@@ -29,13 +29,13 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                                div(class="panel_padding",
                                  h3("Overview defective vehicles"),
                                  
-                                 numericInput("number",
+                                 numericInput("map_number",
                                               "Number of radii:",
                                               value = 2,
                                               min = 1,
                                               max = 50
                                  ),
-                                 sliderInput("radius",
+                                 sliderInput("map_radius",
                                              "Size of radius:",
                                              value = 10,
                                              min = 1,
@@ -50,7 +50,7 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                  sidebarLayout(
                    sidebarPanel(
                      numericInput("number",
-                                  "Number of radii:",
+                                  "Number of radi:",
                                   value = 4,
                                   min = 1,
                                   max = 50,
@@ -66,7 +66,7 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                    
                    # Display a map, bar chart, download option and data table in different tabs
                    mainPanel(
-                     plotOutput("bar_plot"),
+                     plotOutput("bar_plot")
                    )
                  )
         ),
@@ -101,43 +101,37 @@ server <- function(input, output) {
         arrange(Gemeinden)
     })
     
-    generate_buckets <- reactive({
-      buckets <- list()
-      for (i in 1:input$number) {
-        buckets[[i]] <- i*input$radius
+    plot_data <- reactive({
+      df <- data.frame(Bucket = numeric(),
+                       Defective = numeric(),
+                       Non_Defective = numeric())
+      
+      for(x in 1:input$number){
+        
+        defect_count <- vehicles() %>% 
+          filter(Distance_KM <= x*input$radius & Defect == TRUE) %>% 
+          count()
+        
+        non_defect_count <- vehicles() %>% 
+          filter(Distance_KM <= x*input$radius & Defect == FALSE) %>% 
+          count()
+        
+        df[nrow(df) + 1,] <- c(x*input$radius, defect_count$n, non_defect_count$n)
       }
-      print(buckets)
+      
+      df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
     })
     
 
     output$map <- renderLeaflet({
         leaflet(data= vehicles_defect()) %>% 
           addTiles() %>% 
-          setView(lng = 13.3777, lat = 52.5162, zoom = 10) %>% 
-          addCircleMarkers(lng = ~ Laengengrad, lat = ~ Breitengrad)
+          setView(lng = 13.3777, lat = 52.5162, zoom = 10)
     })
     
     
     output$bar_plot <- renderPlot({
-        df <- data.frame(Bucket = numeric(),
-                         Defective = numeric(),
-                         Non_Defective = numeric())
-        
-        for(x in generate_buckets()){
-          
-          defect_count <- vehicles() %>% 
-            filter(Distance_KM <= x & Defect == TRUE) %>% 
-            count()
-          
-          non_defect_count <- vehicles() %>% 
-            filter(Distance_KM <= x & Defect == FALSE) %>% 
-            count()
-          
-          df[nrow(df) + 1,] <- c(x, defect_count$n, non_defect_count$n)
-        }
-        
-        df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
-        print(df)
+        df <- plot_data()
       
         ggplot(df, aes(x=as.factor(Bucket), y=Count, fill=Defect_Y_N))+
           geom_bar(stat = "identity", position = "dodge")
@@ -160,6 +154,7 @@ server <- function(input, output) {
       vehicles()
     })
 }
+ 
 
 # Run the application 
 shinyApp(ui = ui, server = server)

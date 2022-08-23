@@ -340,29 +340,6 @@ entire_defective_data <- defective_vehicle_to_parts %>%
 
 #write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 
-buckets <- list(25,50, 75, 100, 125)
-
-df <- data.frame(Bucket = numeric(),
-                 Defective = numeric(),
-                 Non_Defective = numeric())
-
-for(x in buckets){
-  
-  defect_count <- entire_defective_data %>% 
-                    filter(Distance_KM <= x & Defect == TRUE) %>% 
-                    count()
-
-  non_defect_count <- entire_defective_data %>% 
-                        filter(Distance_KM <= x & Defect == FALSE) %>% 
-                        count()
- 
-  df[nrow(df) + 1,] <- c(x, defect_count$n, non_defect_count$n)
-}
-
-df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
-
-ggplot(df, aes(x=as.factor(Bucket), y=Count, fill=Defect_Y_N))+
-          geom_bar(stat = "identity", position = "dodge")
 
  
 
