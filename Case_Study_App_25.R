@@ -122,11 +122,43 @@ server <- function(input, output) {
       df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
     })
     
+    map_data_vehicle <- reactive({
+      df <- data.frame(ID_Fahrzeug = character(),
+                       Gemeinden = character(),
+                       Laengengrad = numeric(),
+                       Breitengrad = numeric())
+      
+      for(x in 1:input$map_number){
+        round_data <- vehicles_defect() %>% 
+                        filter(Distance_KM <= x*input$map_radius) %>% 
+                        select("ID_Fahrzeug", "Gemeinden", "Laengengrad", "Breitengrad")
+        
+        df <- df %>% bind_rows(round_data)
+      }
+      df
+    })
+    
+    create_map <- reactive({
+      the_map <- leaflet(data= map_data_vehicle()) %>% 
+        addTiles() %>% 
+        setView(lng = 13.3777, lat = 52.5162, zoom = 10) %>% 
+        addCircleMarkers(
+          lng = ~Laengengrad, 
+          lat = ~Breitengrad,
+          radius = 6,
+          color = "green",
+          stroke = FALSE,
+          fillOpacity = 0.5)
+      
+      for(x in 1:input$map_number){
+        the_map <- addCircles(map = the_map, data= the_map, lng = 13.3777, lat = 52.5162, radius = x*input$map_radius*1000)
+      }
+      the_map
+    })
+    
 
     output$map <- renderLeaflet({
-        leaflet(data= vehicles_defect()) %>% 
-          addTiles() %>% 
-          setView(lng = 13.3777, lat = 52.5162, zoom = 10)
+        map <- create_map()
     })
     
     
