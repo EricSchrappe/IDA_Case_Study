@@ -7,28 +7,33 @@
 #    http://shiny.rstudio.com/
 #
 
+# Necessary libraries
 library(shiny)
 library(leaflet)
 library(DT)
 library(tidyverse)
 library(writexl)
 
+# Loading the dataset and ensure that the object will be a dataframe
 dataset <- read_csv("Final_dataset_group_25.csv")
 dataset <- data.frame(dataset)
 
-# Define UI for application that draws a histogram
+# Define UI for application that shows a map, bar chart, the data table with all relevant columns as well as a download function
 ui <- navbarPage("Defective registered diesel-engine vehicles",
+                 
+        # First clickable tap in the nav bar at the top of the application, which represents the map
         tabPanel("Map",
                  tags$head(
                    includeCSS("shiny.css")
                  ),
                  leafletOutput("map", width = "100%", height = "90vh"),
+                 
+                 # Movable window with a number and slider input for selecting the amount of radii and the size
                  absolutePanel(id = "inputs", style="z-index:500;", class = "panel panel-default", fixed = TRUE, draggable = TRUE, 
                                top = 90, left = "auto", right = 30, bottom = "auto", width = 350, height = "auto",
                                
                                div(class="panel_padding",
                                  h3("Overview defective vehicles"),
-                                 
                                  numericInput("map_number",
                                               "Number of radii:",
                                               value = 2,
@@ -45,7 +50,10 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                  ),
                                
         ),
+        
+        # Second clickable tap in the nav bar at the top of the application, which represents the bar chart
         tabPanel("Bar Chart",
+                 
                  # Sidebar with a number and slider input for selecting the amount of radii and the size
                  sidebarLayout(
                    sidebarPanel(
@@ -63,13 +71,13 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                                  max = 50
                      ),
                    ),
-                   
-                   # Display a map, bar chart, download option and data table in different tabs
                    mainPanel(
                      plotOutput("bar_plot")
                    )
                  )
         ),
+        
+        # Third clickable tap in the nav bar at the top of the application, which represents the download option of the data table
         tabPanel("Download",
                  fluidPage(
                    selectInput("format",
@@ -79,6 +87,8 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                    downloadButton("downloadData", "Download data")
                  ),
         ),
+        
+        # Fourth clickable tap in the nav bar at the top of the application, which represents the data table
         tabPanel("Table", 
                  div(class="allround_padding",
                      DTOutput("table")
@@ -89,25 +99,32 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-  
+    
+    # Creation of vehicle data set (including defective & non-defective vehicles) sorted by "Gemeinden"
     vehicles <- reactive({
       dataset %>% 
         arrange(Gemeinden)
     })
     
+    # Creation of only defective vehicle data set, which is also sorted by "Gemeinden"
     vehicles_defect <- reactive({
       dataset %>% 
         filter(Defect = TRUE) %>% 
         arrange(Gemeinden)
     })
     
+    # Creating new data frame incorporating the amount of defective & non-defective vehicles for each radius
     plot_data <- reactive({
+      
+      # Define empty data frame with necessary columns
       df <- data.frame(Bucket = numeric(),
                        Defective = numeric(),
                        Non_Defective = numeric())
       
+      # Loop through the amount of radii selected by the user
       for(x in 1:input$number){
         
+        # Calculate the respective numbers
         defect_count <- vehicles() %>% 
           filter(Distance_KM <= x*input$radius & Defect == TRUE) %>% 
           count()
@@ -116,29 +133,39 @@ server <- function(input, output) {
           filter(Distance_KM <= x*input$radius & Defect == FALSE) %>% 
           count()
         
+        # Add the data to the data frame
         df[nrow(df) + 1,] <- c(x*input$radius, defect_count$n, non_defect_count$n)
       }
       
+      # Transform the data frame to accurately plot the data
       df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
     })
     
     map_data_vehicle <- reactive({
+      
+      # Define empty data frame with necessary columns
       df <- data.frame(ID_Fahrzeug = character(),
                        Gemeinden = character(),
                        Laengengrad = numeric(),
                        Breitengrad = numeric())
       
+      # Loop through the amount of radii selected by the user
       for(x in 1:input$map_number){
+        
+        # Calculate the respective numbers
         round_data <- vehicles_defect() %>% 
                         filter(Distance_KM <= x*input$map_radius) %>% 
                         select("ID_Fahrzeug", "Gemeinden", "Laengengrad", "Breitengrad")
         
+        # Add the data to the data frame
         df <- df %>% bind_rows(round_data)
       }
       df
     })
     
     create_map <- reactive({
+      
+      # Create a leaflet map with the created data frame in function "map_data_vehicle"
       the_map <- leaflet(data= map_data_vehicle()) %>% 
         addTiles() %>% 
         setView(lng = 13.3777, lat = 52.5162, zoom = 10) %>% 
@@ -150,18 +177,19 @@ server <- function(input, output) {
           stroke = FALSE,
           fillOpacity = 0.5)
       
+      # Loop through the amount of radii selected by the user and add the concentric circle to the leaflet map object
       for(x in 1:input$map_number){
         the_map <- addCircles(map = the_map, data= the_map, lng = 13.3777, lat = 52.5162, radius = x*input$map_radius*1000)
       }
       the_map
     })
     
-
+    # Create the map output
     output$map <- renderLeaflet({
         map <- create_map()
     })
     
-    
+    # Create the bar plot output
     output$bar_plot <- renderPlot({
         df <- plot_data()
       
@@ -169,10 +197,13 @@ server <- function(input, output) {
           geom_bar(stat = "identity", position = "dodge")
     })
     
+    # Create the download output
     output$downloadData <- downloadHandler(
       filename = function() {
         paste("data-", Sys.Date(), input$format, sep="")
       },
+      
+      # Check which data format needs to be written
       content = function(file) {
         if(input$format == ".csv"){
           write_csv(vehicles(), file)  
@@ -182,6 +213,7 @@ server <- function(input, output) {
       }
     )
     
+    # Create the data table output
     output$table <- renderDT({
       vehicles()
     })

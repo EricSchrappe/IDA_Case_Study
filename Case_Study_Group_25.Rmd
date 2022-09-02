@@ -96,6 +96,8 @@ txtNew_t1 <- substring(txtNew_t1, 1, nchar(txtNew_t1)-1)
 
 rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE) 
 
+rm(txt_t1, txtNew_t1)
+
 txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
 txtNew_t2 <- gsub(x = txt_t2, pattern = "\t\"[0-9]+\"\\s", replacement = "\n")
 txtNewe_t2 <- gsub(x = txtNew_t2, pattern = "\n\\s", replacement = "\n")
@@ -108,6 +110,8 @@ rval_part_t2 <- read_delim(I(txtNewer_t2), delim = ",", trim_ws = TRUE) %>%
   mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
   select("ID_T02", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
+
+rm(txt_t2, txtNew_t2, txtNewe_t2, txtNewer_t2)
 
 rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE, trim_ws= TRUE) %>%
   select("ID_T05.x", "ID_T05.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
@@ -129,6 +133,29 @@ rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassunge
 # Relevant file for geographical data
 rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1, X, Postleitzahl))
+
+# List of all variable to increase the efficiency for checking missing values
+var_list <- list(vehicle = rval_vehicle_data,
+                 junction_vehicle = junction_table_vehicle,
+                 junction_component = junction_table_component,
+                 components = rval_component_data,
+                 parts_t1 = rval_part_t1,
+                 parts_t2 = rval_part_t2,
+                 parts_t5 = rval_part_t5, 
+                 parts_t6 = rval_part_t6, 
+                 geo_data = rval_geo_data,
+                 car_registrations = rval_car_registrations)
+
+rm(rval_vehicle_data, 
+   junction_table_vehicle, 
+   rval_component_data, 
+   junction_table_component,
+   rval_part_t1,
+   rval_part_t2,
+   rval_part_t5,
+   rval_part_t6,
+   rval_geo_data,
+   rval_car_registrations)
 
 ```
 
@@ -153,16 +180,6 @@ na_test <- function(x){
   }
 }
 
-# List of all variable to increase the efficiency for checking missing values
-var_list <- list(vehicle = rval_vehicle_data,
-                 junction_vehicle = junction_table_vehicle,
-                 junction_component = junction_table_component,
-                 components = rval_component_data, 
-                 parts_t5 = rval_part_t5, 
-                 parts_t6 = rval_part_t6, 
-                 geo_data = rval_geo_data,
-                 car_registrations = rval_car_registrations)
-
 # 1. Step
 # Applying missing value function to each of the variables
 lapply(var_list, na_test)
@@ -173,8 +190,8 @@ lapply(var_list, na_test)
 #print.data.frame(head(vehicle_data_missing_values, 2))
 #component_data_missing_values <- rval_component_data[is.na(rval_component_data$Fehlerhaft_Datum),]
 #print.data.frame(head(component_data_missing_values, 2))
-geo_data_missing_values <- rval_geo_data[is.na(rval_geo_data$Gemeinde),]
-print.data.frame(head(geo_data_missing_values, 2))
+geo_data_missing_values <- var_list[["geo_data"]][is.na(var_list[["geo_data"]]$Gemeinde),]
+print.data.frame(head(geo_data_missing_values, 10))
 
 # => For the vehicle & component data, we observed that the missing values only occur when the vehicle / component isn't defective
 # => Since these cases are still relevant for our analysis, we will keep them at this point of our analysis
@@ -182,7 +199,7 @@ print.data.frame(head(geo_data_missing_values, 2))
 
 # 3. Step
 # Adjust data sets based on observations
-rval_geo_data <- rval_geo_data %>% drop_na()
+var_list[["geo_data"]] <- var_list[["geo_data"]] %>% drop_na()
 
 
 
@@ -243,12 +260,39 @@ c. Remove potential duplicate data observations
 ```{r}
 
 # 1. Step
-duplicate_test <- function(x){
-  
+duplicate_test <- function(dataframe){
+  if(any(grepl("ID_", colnames(dataframe)))){
+    if(sum(grepl("ID_", colnames(dataframe)), na.rm = TRUE) == 1){
+      dataframe %>% 
+        group_by(across(starts_with("ID_"))) %>% 
+        summarise(Total = n()) %>% 
+        filter(Total > 1)
+    }else{
+      dataframe %>% 
+        group_by(dataframe[,1]) %>% 
+        summarise(Total = n()) %>% 
+        filter(Total > 1)
+    }
+  }else if(any(grepl("IDNummer", colnames(dataframe)))){
+    dataframe %>% 
+        group_by(IDNummer) %>% 
+        summarise(Total = n()) %>% 
+        filter(Total > 1)
+  }else{
+    dataframe %>% 
+        group_by(Gemeinde) %>% 
+        summarise(Total = n()) %>% 
+        filter(Total > 1)
+  }
 }
 
+lapply(var_list, duplicate_test)
 
+# Only in the geo_data dataframe could we find duplicates, but here we used the column "Gemeinde" as an ID instead of an ID column
+# These duplicates can be traced back to different postcodes for municipalities
+# Since we only have the information about the municipalities in the car registration data and postcodes aren't relevant for our analysis, we can remove the duplicates of this dataframe
 
+var_list[["geo_data"]] <- var_list[["geo_data"]] %>% distinct(Gemeinde, .keep_all = TRUE)
 
 ```
 
