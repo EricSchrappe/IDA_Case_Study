@@ -37,7 +37,16 @@ init <- function(){
     install.packages("purrr")
     library(purrr)
   }
+  if(!require('plotly')){
+    install.packages("plotly")
+    library(plotly)
+  }
+  if(!require('lubridate')){
+    install.packages("lubridate")
+    library(lubridate)
+  }
 }
+
 
 init()
 
@@ -53,21 +62,25 @@ init()
 
 # Import data which includes production date
 komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
-nrow(komponenten_k7)
-
 
 # Import data which includes receiving date
 logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
-nrow(logistikverzug_k7)
 
 # Merge tables by IDNummber (id number) if rows equal
 if(!nrow(komponenten_k7) == nrow(logistikverzug_k7)){
   print("Amount of rows unequal in Komponenten K7 und Logistikverzug K7")
   stop()
+}else{
+  big_table <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
+  print("Merged 'Komponente_K7.csv' and 'Logistikverzug_K7.csv'")
 }
 
-big_table <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
-logistics_delay <- data.frame(big_table$IDNummer, big_table$Produktionsdatum, big_table$Wareneingang)
+# Convert both rows to POSIXct for timediff calculation and rename columns
+logistics_delay <- data.frame(IDNummer=big_table$IDNummer,Produktionsdatum= as.POSIXct(big_table$Produktionsdatum),Wareneingang= as.POSIXct(big_table$Wareneingang))
+
+
+#Add one day to Produktionsdatum <- "You can assume that produced goods are issued one day after production date"
+logistics_delay$Produktionsdatum <- logistics_delay$Produktionsdatum + lubridate::days(1)
 
 
 #Calculate Datediff without weekends -> help function
@@ -76,16 +89,24 @@ date_diff_excluding_wekeends <- function(x, y) {
   return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
 }
 
-#Test date_diff
-date1 <- as.POSIXct("2022-01-10")
-date2 <- as.POSIXct("2022-01-19")
-date_diff_excluding_wekeends(date1, date2)
+#Vectorize function
+date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
 
-# TODO: mapply über die Daten laufen lassen für date_diff_excluding_weekends
-s <- mapply(date_diff_excluding_wekeends(logistics_delay$big_table.Produktionsdatum+1, logistics_delay$big_table.Wareneingang))
+#Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende
+logistics_delay <- logistics_delay %>%
+  mutate(Verzoegerung_in_Tagen=date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang))
 
-logistics_delay$big_table.Produktionsdatum <- as.POSIXct(logistics_delay$big_table.Produktionsdatum)
-logistics_delay$big_table.Wareneingang <- as.POSIXct(logistics_delay$big_table.Wareneingang)
+#Check structure
+print(head(logistics_delay, 10))
+
+
+#Plot the Table 
+fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nbinsx = 25, alpha=0.8) %>%
+    layout(yaxis = list(title = "Anzahl der Teile"),
+           xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
+           title="Plot: Verteilung der Verspaetung in Tagen") 
+
+fig
 
 
 
@@ -302,6 +323,25 @@ print(fitfweibull)
 
 ## Result: Log-norm distribution fits much better than Weibull, but still not really good
 
+
+################################################################################################################################
+# Aufgabe 2
+# Why does it make sense to store the available data in separate files instead of saving everything in a huge table? 
+# Name at least four benefits. The available tables represent a typical data base structure. How is it called?
+#################################################################################################################################
+
+################################################################################################################################
+# Aufgabe 3
+# How many of the parts T16 ended up in vehicles registered in Adelshofen?
+#################################################################################################################################
+
+
+# Import data 
+einzelteil_t16 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
+einzelteil_t16
+
+
+
 ################################################################################################################################
 # Aufgabe 4
 # Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have?
@@ -309,6 +349,7 @@ print(fitfweibull)
 #################################################################################################################################
 
 # Pfad setzen -> CSV einlesen alle Zulassungen
+#TODO: Update path
 setwd("~/Rproject_IDA/Data/Zulassungen")
 alle_zulassungen <- read.csv2("Zulassungen_alle_Fahrzeuge.csv")
 print("Struktur der Table Zulassungen_alle_Fahrzeuge.csv ")
