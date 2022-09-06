@@ -57,8 +57,9 @@ init()
 ################################################################################################################################
 ################################################################################################################################
 # Aufgabe 1
-# Create distribution for the logistics delay of component „K7”
+#a)  How is the logistics delay distributed? Justify your choice with statistical tests and briefly describe your approach.
 #################################################################################################################################
+
 
 # Import data which includes production date
 komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
@@ -109,63 +110,6 @@ fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nb
 fig
 
 
-
-
-#-----------------------------------------------
-#-------------------- OLD ----------------------
-# Issued one day after production date -> production date + 1
-res$VerspaetungInTagen <- as.integer((as.Date(res$Wareneingang) - (as.Date(res$Produktionsdatum)+1)))
-# TO DO: There is a cleaner way of doing this (reduce amount of information)
-logistics_delay <- data.frame(res$IDNummer, res$Produktionsdatum, res$Wareneingang, res$VerspaetungInTagen)
-delay_in_days <- logistics_delay$res.VerspaetungInTagen
-
-# TO REMOVE WEEKENDS
-# Source: https://stackoverflow.com/questions/37150403/is-there-an-easy-way-to-tell-if-an-interval-overlaps-a-weekend-in-r
-#' Check if a weekday is within an interval
-#' 
-#' @param wday Day of week (integer 1-7)
-#' @param from Date. Can be a vector.
-#' @param to Date. Same length as `from` and must be greater than `from`.
-#' @param week_start 1 = Monday. 7 = Sunday
-#' 
-# UNCOMMENT BELOW
-# wday_in_interval = function(wday, from, to, week_start = 1) {
-#   if (wday < 1 | wday > 7) 
-#     stop("wday must be an integer from 1 to 7.")
-#   if (week_start)
-#     wday = 1 + (((wday - 2) + week_start ) %% 7)  # Translate wday to week_start = 1 (ISO standard)
-#   if (any(from > to, na.rm = TRUE))
-#     stop("`from` must come before `to`")
-#   
-#   # If the interval is greater than a week, it trivially contains any weekday
-#   over_a_week = difftime(from, to, units = "days") >= 7
-#   
-#   # Check if weekday is both smaller/greater than "from" and "to"
-#   days_from = as.numeric(strftime(from, "%u"))
-#   days_to = as.numeric(strftime(to, "%u"))
-#   contains_weekday = ifelse(
-#     strftime(from, "%V") == strftime(to, "%V"),  # Dates are in the same week?
-#     yes = wday >= days_from & wday <= days_to,
-#     no = wday >= days_from | wday <= days_to  # 
-#   )
-#   
-#   return(over_a_week | contains_weekday)
-# }
-#
-# logistics_delay <- logistics_delay %>%
-#   mutate(overlaps_saturday = wday_in_interval(6, from = res.Produktionsdatum, to = res.Wareneingang) ) %>%
-#   mutate(overlaps_sunday = wday_in_interval(7, from = res.Produktionsdatum, to = res.Wareneingang) ) %>%
-#   mutate(overlaps_weekend = overlaps_saturday | overlaps_sunday)
-# 
-# logistics_delay <- logistics_delay %>%
-#   mutate(VerspaetungKorrigiert = res.VerspaetungInTagen - as.integer(overlaps_saturday) - as.integer(overlaps_sunday))
-# 
-# delay_in_days <- logistics_delay$VerspaetungKorrigiert
-
-# Draw histogram to see the distribution of how many components have been delivered with how much delay
-hist(logistics_delay$res.VerspaetungInTagen,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
-plot(table(delay_in_days))
-
 # Specification of distribution from data: (https://www.r-project.org/conferences/useR-2009/slides/Delignette-Muller+Pouillot+Denis.pdf)
 #   1. Choose among a family of distributions the best candidates
 #   2. Estimate the distribution parameters and their uncertainty
@@ -174,13 +118,13 @@ plot(table(delay_in_days))
 
 ## Step 1: Generate skewness-kurtosis graph to choose distributions
 
-descdist(delay_in_days, discrete = TRUE, boot = 100)
+descdist(logistics_delay$Verzoegerung_in_Tagen, discrete = TRUE, boot = 100)
 
 ## Result: Negative Binomial and Poisson might fit best (Question: Negative Binomial even valid in theory? No binary data here.)
 
 ## Step 2: Fit given distributions (Always norm the data to min = 0 because distributions start with 0)
 
-fnbinom <- fitdist(delay_in_days - min(delay_in_days), "nbinom")
+fnbinom <- fitdist(logistics_delay$Verzoegerung_in_Tagen - min(logistics_delay$Verzoegerung_in_Tagen), "nbinom")
 plot(fnbinom)
 summary(fnbinom)
 # Fitting of the distribution ' nbinom ' by maximum likelihood 
@@ -194,7 +138,7 @@ summary(fnbinom)
 # size    1 NaN
 # mu    NaN   1
 
-fpoisson <- fitdist(delay_in_days - min(delay_in_days), "pois")
+fpoisson <- fitdist(logistics_delay$Verzoegerung_in_Tagen - min(logistics_delay$Verzoegerung_in_Tagen), "pois")
 plot(fpoisson)
 summary(fpoisson)
 # Fitting of the distribution ' pois ' by maximum likelihood 
@@ -250,7 +194,7 @@ print(fitfpoisson)
 
 ## Step 1: Generate skewness-kurtosis graph to choose distributions
 
-descdist(delay_in_days, discrete = FALSE, boot = 100)
+descdist(logistics_delay$Verzoegerung_in_Tagen, discrete = FALSE, boot = 100)
 
 # summary statistics
 # ------
@@ -265,7 +209,7 @@ descdist(delay_in_days, discrete = FALSE, boot = 100)
 
 ## Step 2: Fit given distributions
 
-flnorm <- fitdist(delay_in_days - 0.9, "lnorm")
+flnorm <- fitdist(logistics_delay$Verzoegerung_in_Tagen - 0.9, "lnorm")
 plot(flnorm)
 summary(flnorm)
 # Fitting of the distribution ' lnorm ' by maximum likelihood 
@@ -279,7 +223,7 @@ summary(flnorm)
 # meanlog  1.000000e+00 -3.183187e-12
 # sdlog   -3.183187e-12  1.000000e+00
 
-fweibull <- fitdist(delay_in_days, "weibull")
+fweibull <- fitdist(logistics_delay$Verzoegerung_in_Tagen, "weibull")
 plot(fweibull)
 summary(fweibull)
 # Fitting of the distribution ' weibull ' by maximum likelihood 
@@ -325,10 +269,59 @@ print(fitfweibull)
 
 
 ################################################################################################################################
+# Aufgabe 1
+#b)  Determine the mean of the logistics delay (watch out for weekends). Please interpret this number and discuss possible alternatives.
+#################################################################################################################################
+mean_logistic_dealy <- mean(logistics_delay$Verzoegerung_in_Tagen)
+sprintf("Die durschnittliche logistische Verzoegerung beträgt %s Tage", format(round(mean_logistic_dealy, 2), nsmall = 2))
+
+discussion <- "Im Durchschnitt beträgt die Verzoegerung blabla. TODO"
+
+
+
+
+
+
+
+
+
+################################################################################################################################
 # Aufgabe 2
 # Why does it make sense to store the available data in separate files instead of saving everything in a huge table? 
 # Name at least four benefits. The available tables represent a typical data base structure. How is it called?
 #################################################################################################################################
+
+#Benefit 1 
+# Accessibility
+# Structuring and storing data in separate files allows easier access and thus easier readability of the files. 
+# Compared to large data sets, the relevant information would have to be extracted. 
+# In the case of small files with adequate designations, the user has the possibility to read out the desired information 
+# in a targeted manner and to process it directly. This leads to the next benefit of performance. 
+
+# Benefit 2 
+# Performance / Operating time
+# By storing the files in small separate files, the access time to the files is significantly reduced. 
+# Reading or opening large files requires a lot of memory and operations of the computer. 
+# By dividing them into small files, it is possible to work with the files faster. 
+
+#Benefit 3 
+# Saving memory / space
+# As announced in performance, reducing a large dataset to small seperate ones can also reduce storage space. 
+# Data sets that are not necessary or sensibly grouped can be swapped out or made accessible elsewhere, 
+# thus avoiding unnecessary memory consumption. 
+
+#Benefit 4
+# data accuracy and integrity.
+# Data integrity is the overall accuracy, completeness, and consistency of data. 
+# If unforeseen events or errors damage the integrity of the data, it is very costly to fix this in a large file. 
+# If separate files are used and integrity is violated there, the area to be processed is significantly limited. 
+# The small separate files can thus be recovered more quickly without the risk of violating new integrity in other data fields. 
+
+
+#The typical database structure?
+# Not relational because we have no information about relations between the tables. No information about foreign/primary keys. 
+
+
 
 ################################################################################################################################
 # Aufgabe 3
@@ -336,11 +329,38 @@ print(fitfweibull)
 #################################################################################################################################
 
 
-# Import data 
-einzelteil_t16 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
-einzelteil_t16
+# Import data  Einzelteil_T16
+txt_t1 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
+txtNew_t1 <- gsub(x = txt_t1, pattern = "\\s\\|\\s\\|\\s", replacement = ",") 
+txtNew_t1 <- gsub(x = txtNew_t1, pattern = "\\s", replacement = "\n") 
+txtNew_t1 <- substring(txtNew_t1, 1, nchar(txtNew_t1)-1) 
+rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE)
 
 
+head(rval_part_t1, 10)
+head(rval_part_t1$Produktionsdatum.x, 2)
+colnames(rval_part_t1)
+
+
+
+# Load dataset for registrations in Adelshofen
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+adelshofen_zulassungen <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+
+typeof(adelshofen_zulassungen$IDNummer)
+head(adelshofen_zulassungen, 10)
+
+
+shl <- adelshofen_zulassungen %>% 
+  filter(str_detect(adelshofen_zulassungen$IDNummer, "^12-"))
+
+shl
+
+
+
+#   16-212-2121-7
 
 ################################################################################################################################
 # Aufgabe 4
@@ -349,11 +369,27 @@ einzelteil_t16
 #################################################################################################################################
 
 # Pfad setzen -> CSV einlesen alle Zulassungen
-#TODO: Update path
-setwd("~/Rproject_IDA/Data/Zulassungen")
-alle_zulassungen <- read.csv2("Zulassungen_alle_Fahrzeuge.csv")
-print("Struktur der Table Zulassungen_alle_Fahrzeuge.csv ")
-str(alle_zulassungen)
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+s <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+nrow(s)
+
+#typeof(alle_zulassungen$IDNummer)
+descrip_int = "The Integer data type is used for integer values.To store a value as an integer, we need to specify it as such. The integer data type is commonly used for discrete only values like unique ids.We can store as well as convert a value into an integer type using the as.integer() function.If the data consists of only numbers, like decimals, whole numbers, then we call it numeric data. In numeric data, the numbers can be positive or negative. If the data consists only of whole numbers, it is called as integer. Integers too may take negative or positive values. In the present example, the integer number 408097 serves as an example of an integer. -408097,52 would be an nummeric datatype for example."
+
+
+descrip_char = "The character data type stores character values or strings. 
+              Strings in R can contain the alphabet, numbers, and symbols. 
+              The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas."
+help_df <- data.frame(Row_Name = colnames(alle_zulassungen),
+                      Data_Types=c(typeof(alle_zulassungen$X),typeof(alle_zulassungen$IDNummer),typeof(alle_zulassungen$Gemeinden),typeof(alle_zulassungen$Gemeinden) ),
+                      Examples=c(alle_zulassungen$X[1], alle_zulassungen$IDNummer[1], alle_zulassungen$Gemeinden[1], alle_zulassungen$Zulassung[1]),
+                      Characteristics=c(descrip_int,NA))
+
+
+#help_df <- table(help_df)
+help_df
 
 
 ################################################################################################################################
@@ -371,6 +407,9 @@ str(alle_zulassungen)
 # Thus, people from all over the world can access the data if it's on a server.
 # A server is also usually running non-stop. The data is thus available any time.
 # Nowadays usually servers are used that are managed by specialized companies.
+# Furthermore storing your data on a server and making it available for everyone, 
+# you have possibility to easily manage the performance by scaling up or down the server if necessary. 
+# Storing the data locally leads to a limitation of the performance to the given technical units of the computer.
 # A lot of challenges, like security aspects, are therefore already taken care of.
 
 ## 2
@@ -388,12 +427,14 @@ str(alle_zulassungen)
 # This way, the application would be available to any customer with an internet connection over the world wide web.
 # By serving an application this way, we can scale the infrastructure up and down depending on how many users we have / expect.
 # Furthermore, we are taking advantage of the specialization of hosting companies, so that we can focus on developing our application.
+# There are different providers like Heroku which allows to easily make your Application f.e. R Shiny App worldwide available. 
 
 ################################################################################################################################
 # Aufgabe 6
 # On 11.08.2010 there was a hit and run accident. 
 # There is no trace of the license plate of the car involved in the accident. 
-# The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
+# The police asks for your help, as you work for the Federal Motor Transport Authority, 
+# and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
 #################################################################################################################################
 
 # Startdatenpunkt
@@ -404,6 +445,7 @@ alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahr
 
 # CSV einlesen Bestandteile Fahrzeuge OEM1
 Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
+
 
 # Filtern nach gesuchter Karosserie und weitere Suche in Zulassungen
 result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
