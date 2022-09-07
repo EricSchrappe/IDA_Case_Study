@@ -274,7 +274,6 @@ print(fitfweibull)
 #################################################################################################################################
 mean_logistic_dealy <- mean(logistics_delay$Verzoegerung_in_Tagen)
 sprintf("Die durschnittliche logistische Verzoegerung beträgt %s Tage", format(round(mean_logistic_dealy, 2), nsmall = 2))
-
 discussion <- "Im Durchschnitt beträgt die Verzoegerung blabla. TODO"
 
 
@@ -365,7 +364,7 @@ zweiundzwanzig <- Bestandteile_Fahrzeuge_OEM2_Typ22 %>%
 
 
 helper_df <- bind_rows(elfer,zwelfer, einundzwanzig, zweiundzwanzig)
-
+helper_df
 # "22-2-21-28305"  "22-2-21-28306"  "22-2-21-34237"  "22-2-21-34238"  "22-2-22-178083" "22-2-22-178084"
 #  "22-2-22-223224" "22-2-22-223225" "22-2-22-237410" "22-2-22-237411"
 eel <- Bestandteile_Fahrzeuge_OEM2_Typ22 %>%
