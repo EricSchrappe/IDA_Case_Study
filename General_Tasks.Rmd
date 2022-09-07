@@ -1,0 +1,163 @@
+---
+title: "General Tasks R Markdown"
+output: html_document
+author: 'Group 25'
+date: '2022-09-07'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Include Packages
+```{r, echo=FALSE, results='hide'}
+if (!require(install.load)){
+  install.packages("install.load")
+}
+library(install.load)
+install_load("tidyverse", "dplyr", "tidyr", "stringr", "readr", "knitr", "here", "ggplot2", "fitdistrplus", "purrr", "plotly", "lubridate")
+```
+
+
+# Question 1
+
+Logistics plays a more and more important role in the product development of the automobile industry. Parts produced by the supplier must first be delivered to the OEM before they can be installed. What seems logical at first sight should be analyzed in more detailed way for a professional application. Therefore, create a distribution for the logistics delay of component „K7”. Use the production date (“Produktionsdatum”) from the data set “Komponente_K7.csv” and the receiving date of incoming goods (“Wareneingang”) from “Logistikverzug_K7.csv” (logistics delay). You can assume that produced goods are issued one day after production date. For the model design in R, create a new data set “Logistics delay” that contains the required information from both data sets.
+
+a) How is the logistics delay distributed? Justify your choice with statistical tests and briefly describe your approach.
+```{r}
+# Import data which includes production date
+komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
+
+# Import data which includes receiving date
+logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
+
+# Merge tables by IDNummber (id number) if rows equal
+if(!nrow(komponenten_k7) == nrow(logistikverzug_k7)){
+  print("Amount of rows unequal in Komponenten K7 und Logistikverzug K7")
+  stop()
+}else{
+  big_table <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
+  print("Merged 'Komponente_K7.csv' and 'Logistikverzug_K7.csv'")
+}
+
+# Convert both rows to POSIXct for timediff calculation and rename columns
+logistics_delay <- data.frame(IDNummer=big_table$IDNummer,Produktionsdatum= as.POSIXct(big_table$Produktionsdatum),Wareneingang= as.POSIXct(big_table$Wareneingang))
+
+
+#Add one day to Produktionsdatum <- "You can assume that produced goods are issued one day after production date"
+logistics_delay$Produktionsdatum <- logistics_delay$Produktionsdatum + lubridate::days(1)
+
+
+#Calculate Datediff without weekends -> help function
+date_diff_excluding_wekeends <- function(x, y) {
+  if(is.na(x) || is.na(y)) return(NA)
+  return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
+}
+
+#Vectorize function
+date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
+
+#Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende
+logistics_delay <- logistics_delay %>%
+  mutate(Verzoegerung_in_Tagen=date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang))
+
+#Check structure
+#print(head(logistics_delay, 10))
+
+
+#Plot the Table 
+fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nbinsx = 25, alpha=0.8) %>%
+    layout(yaxis = list(title = "Anzahl der Teile"),
+           xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
+           title="Plot: Verteilung der Verspaetung in Tagen") 
+
+fig
+```
+b) Determine the mean of the logistics delay (watch out for weekends). Please interpret this number and discuss possible alternatives.
+```{r}
+sprintf("Die durschnittliche logistische Verzoegerung beträgt %s Tage", format(round(mean(logistics_delay$Verzoegerung_in_Tagen), 2), nsmall = 2))
+```
+**Interpretation: **
+TODO
+
+c) Visualize the distribution in an appropriate way by displaying the histogram and the density function using “plotly”. Please describe how you selected the size of the bins.
+```{r}
+print("TODO")
+```
+d) Please describe how you proceed, if you have to create a decision tree, which is describing the classification problem to classify whether the component (K7) is defective (Fehlerhaft) or not? (Hint: You might want to work with visualizations.)
+```{r}
+print("TODO")
+```
+
+# Question 2
+
+Why does it make sense to store the available data in separate files instead of saving everything in a huge table? Name at least four benefits. The available tables represent a typical data base structure. How is it called?
+
+* **Accessibility: ** 
+Structuring and storing data in separate files allows easier access and thus easier readability of the files. 
+Compared to large data sets, the relevant information would have to be extracted. 
+In the case of small files with adequate designations, the user has the possibility to read out the desired information in a targeted manner and to process it directly. This leads to the next benefit of performance. 
+
+* **Performance / Operating time: ** 
+By storing the files in small separate files, the access time to the files is significantly reduced. 
+Reading or opening large files requires a lot of memory and operations of the computer. 
+By dividing them into small files, it is possible to work with the files faster. 
+
+* **Memory advantage: ** 
+As announced in performance, reducing a large dataset to small seperate ones can also reduce storage space. 
+Data sets that are not necessary or sensibly grouped can be swapped out or made accessible elsewhere, thus avoiding unnecessary memory consumption. 
+
+* **Data integrity: ** 
+Data integrity is the overall accuracy, completeness, and consistency of data. 
+If unforeseen events or errors damage the integrity of the data, it is very costly to fix this in a large file. 
+If separate files are used and integrity is violated there, the area to be processed is significantly limited. 
+The small separate files can thus be recovered more quickly without the risk of violating new integrity in other data fields. 
+
+
+# Question 3
+How many of the parts T16 ended up in vehicles registered in Adelshofen?
+````{r}
+print("TODO")
+```
+
+
+# Question 4 
+Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have? Put your answers into a table which is integrated into your Markdown document and describe the characteristics of the data type(s).
+
+# Question 5 
+You want to publish your application. Why does it make sense to store the records on the database of a server? Why can’t you store the records on your personal computer? What is an easy way to make your application available to your customers? Please name 4 aspects.
+
+* Servers are optimized to make resources available remotely via the internet.Thus, people from all over the world can access the data if it's on a server.A server is also usually running non-stop. The data is thus available any time.
+Nowadays usually servers are used that are managed by specialized companies.Furthermore storing your data on a server and making it available for everyone, you have the possibility to easily manage the performance by scaling up or down the server if necessary. Storing the data locally leads to a limitation of the performance to the given technical units of the computer. A lot of challenges, like security aspects, are therefore already taken care of.
+
+* Storing records on one's own computer might work for a small project where no one else is involved.When other people need to have access to the data, though, we face several problems:
+  * Usually our computer does not run all the time. But maybe the data should be accessible any time.
+  * We do other things with our computer. This might impact the performance if we tried to use our computer as a server.
+  * Usually our internet connection is not that great. Just as our computer, it is not optimized to serve large amount of data to remote clients.
+  * We would need to set up security measures etc., which would probably quickly become a problem.
+
+* An easy way to provide an application to customers would be to host it on a cloud service, aka a server. This way, the application would be available to any customer with an internet connection over the world wide web. By serving an application this way, we can scale the infrastructure up and down depending on how many users we have / expect. 
+Furthermore, we are taking advantage of the specialization of hosting companies, so that we can focus on developing our application. There are different providers like [Heroku](https://www.heroku.com) f.e. which allows to easily make your application, in our case R Shiny application worldwide available. 
+
+
+# Question 6 
+On 11.08.2010 there was a hit and run accident. There is no trace of the license plate of the car involved in the accident. The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
+
+````{r}
+# Startdatenpunkt
+gesuchte_karosserie <- 'K5-112-1122-79'
+
+# CSV einlesen alle Zulassungen
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+# CSV einlesen Bestandteile Fahrzeuge OEM1
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
+
+
+# Filtern nach gesuchter Karosserie und weitere Suche in Zulassungen
+result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
+  filter(ID_Karosserie == gesuchte_karosserie) %>%
+  inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
+
+sprintf("Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",result_row["IDNummer"], gesuchte_karosserie, result_row["Zulassung"], result_row["Gemeinden"] )
+```

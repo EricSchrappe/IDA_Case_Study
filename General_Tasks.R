@@ -327,8 +327,60 @@ discussion <- "Im Durchschnitt beträgt die Verzoegerung blabla. TODO"
 # Aufgabe 3
 # How many of the parts T16 ended up in vehicles registered in Adelshofen?
 #################################################################################################################################
+# Load dataset for registrations in Adelshofen
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+adelshofen_zulassungen <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+adelshofen_zulassungen
+typeof(adelshofen_zulassungen$IDNummer)
+tail(adelshofen_zulassungen, 10)
 
 
+# Autos beginnen mit 11, 12, 21, 22 -> notwendi
+Bestandteile_Fahrzeuge_OEM1_Typ11 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv"))
+
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
+
+Bestandteile_Fahrzeuge_OEM2_Typ21 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ21.csv"))
+
+Bestandteile_Fahrzeuge_OEM2_Typ22 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ22.csv"))
+names(Bestandteile_Fahrzeuge_OEM2_Typ22)[names(Bestandteile_Fahrzeuge_OEM2_Typ22) == 'ID_Fahrzeug'] <- 'IDNummer'
+
+
+# Mergen aller Autos mit den Bestandteilen aus den Autos
+elfer <- Bestandteile_Fahrzeuge_OEM1_Typ11 %>%
+  inner_join(adelshofen_zulassungen, by.x = "IDNummer", by.y = "ID_Fahrzeug")
+#68
+zwelfer <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
+  inner_join(adelshofen_zulassungen, by.x = "IDNummer", by.y = "ID_Fahrzeug")
+# 14
+einundzwanzig <- Bestandteile_Fahrzeuge_OEM2_Typ21 %>%
+  inner_join(adelshofen_zulassungen, by.x = "IDNummer", by.y = "ID_Fahrzeug")
+#18
+
+zweiundzwanzig <- Bestandteile_Fahrzeuge_OEM2_Typ22 %>%
+  inner_join(adelshofen_zulassungen, by= "IDNummer")
+#10
+
+
+helper_df <- bind_rows(elfer,zwelfer, einundzwanzig, zweiundzwanzig)
+
+# "22-2-21-28305"  "22-2-21-28306"  "22-2-21-34237"  "22-2-21-34238"  "22-2-22-178083" "22-2-22-178084"
+#  "22-2-22-223224" "22-2-22-223225" "22-2-22-237410" "22-2-22-237411"
+eel <- Bestandteile_Fahrzeuge_OEM2_Typ22 %>%
+  filter(Bestandteile_Fahrzeuge_OEM2_Typ22$ID_Fahrzeug == '22-2-22-237411')
+eel
+
+zweiundzwanzig <- Bestandteile_Fahrzeuge_OEM2_Typ22 %>%
+  inner_join(adelshofen_zulassungen, by.x = "IDNummer", by.y = "ID_Fahrzeug")
+zweiundzwanzig
+
+rs <- read.csv(here("Data", "Fahrzeug", "Fahrzeuge_OEM1_Typ11.csv"))
+tail(rs, 10)
+
+
+# OLD
 # Import data  Einzelteil_T16
 txt_t1 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
 txtNew_t1 <- gsub(x = txt_t1, pattern = "\\s\\|\\s\\|\\s", replacement = ",") 
@@ -338,27 +390,21 @@ rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE)
 
 
 head(rval_part_t1, 10)
-head(rval_part_t1$Produktionsdatum.x, 2)
+head(rval_part_t1$Produktionsdatum.x, 100)
+# 16-212-2121-106" "16-212-2122-153" "16-212-2122-65"  "16-212-2121-101" "16-212-2122-127" "16-212-2121-81"
 colnames(rval_part_t1)
 
 
-
-# Load dataset for registrations in Adelshofen
-alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
-
-adelshofen_zulassungen <- alle_zulassungen %>%
-  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
-
-typeof(adelshofen_zulassungen$IDNummer)
-head(adelshofen_zulassungen, 10)
-
-
 shl <- adelshofen_zulassungen %>% 
-  filter(str_detect(adelshofen_zulassungen$IDNummer, "^12-"))
+  filter(str_detect(adelshofen_zulassungen$IDNummer, "^22-"))
 
-shl
+eel <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
+  filter(Bestandteile_Fahrzeuge_OEM1_Typ12$ID_Fahrzeug == '12-1-12-10686')
+eel
 
 
+kompK1b1 <- read.csv(here("Data", "Komponente", "Komponente_K3SG2.csv"))
+tail(kompK1b1, 10)
 
 #   16-212-2121-7
 
