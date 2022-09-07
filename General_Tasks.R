@@ -104,7 +104,7 @@ test <- distance_in_km(c(13,8), c(13.02, 8.02))
 # Aufgabe 1
 # Create distribution for the logistics delay of component „K7”
 #################################################################################################################################
-setwd("~/Rproject_IDA/Data/Logistikverzug")
+setwd("Data/Logistikverzug")
 komponenten_k7 <- read.csv2("Komponente_K7.csv")
 nrow(komponenten_k7)
 
