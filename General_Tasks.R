@@ -33,82 +33,15 @@ init <- function(){
     install.packages("fitdistrplus")
     library(fitdistrplus)
   }
+  if(!require('actuar')){
+    install.packages("actuar")
+    library(actuar)
+  }
 }
 
 init()
 
 
-
-#################################################################################################################################
-#     Main Task -> load relevant files 
-#     1) Einzelteil -> Einzelteil_T06
-#     2) Fahrzeuge -> Fahrzeuge_OEM1_Typ11
-#################################################################################################################################
-
-# Einzelteil_T06
-setwd("~/Rproject_IDA/Data/Einzelteil")
-einzelteil_t06 <- read.csv("Einzelteil_T06.csv")
-
-#einzelteil_t06_fehlerhaft <- einzelteil_t06[which(einzelteil_t06$Fehlerhaft > 0), ]
-print(str(einzelteil_t06, 10))
-
-
-# Helper Function Bestandteile Fahrzeuge OEM11
-in_dates <- function(x, y){
-  Fahrzeuge_OEM1_Typ11[Fahrzeuge_OEM1_Typ11$Produktionsdatum >= x & Fahrzeuge_OEM1_Typ11$Produktionsdatum <= y,]
-}
-
-# Bestandteile Fahrzeug OEM11 
-setwd("~/Rproject_IDA/Data/Fahrzeug")
-Fahrzeuge_OEM1_Typ11 <- read.csv("Fahrzeuge_OEM1_Typ11.csv")
-
-
-#21.09.2010 - 04.09.2012
-#Fahrzeuge_OEM1_Typ11[Fahrzeuge_OEM1_Typ11$Produktionsdatum >= as.POSIXct("2010-09-21") & Fahrzeuge_OEM1_Typ11$Produktionsdatum <= as.POSIXct("2012-09-04"),]
-
-
-#ress <- Fahrzeuge_OEM1_Typ11 %>%
-#  filter(Fahrzeuge_OEM1_Typ11$Produktionsdatum >= as.POSIXct("2010-09-21")) %>%
-#  filter(Fahrzeuge_OEM1_Typ11$Produktionsdatum <= as.POSIXct("2012-09-04"))
-
-Fahrzeug_in_between <- in_dates(as.POSIXct("2010-09-21"), as.POSIXct("2012-09-04"))
-tail(Fahrzeug_in_between, 10)
-
-
-#Bestandteile_Fahrzeuge_OEM1_Typ11.csv
-setwd("~/Rproject_IDA/Data/Fahrzeug")
-Bestandteile_Fahrzeuge_OEM1_Typ11 <- read.csv2("Bestandteile_Fahrzeuge_OEM1_Typ11.csv")
-head(Bestandteile_Fahrzeuge_OEM1_Typ11, 10)
-
-
-
-
-
-# Load Geodaten
-setwd("~/Rproject_IDA/Data/Geodaten")
-Geodaten_Gemeinden <- read.csv2("Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv")
-
-head(Geodaten_Gemeinden, 100)
-
-distance_in_km <- function(vector1, vector2 ){
-  # Die Vektoren enthalten laengen und breitengrad
-  if(!is.atomic(character(vector1)) && !is.atomic(character(vektor2))){
-    sprintf("Die Funktionen benötigt zwei Punkte mit jeweils Laengen und Breitengrad!")
-  }else{
-    
-    
-    #mit distance: Entfernung in km 
-    dx = 71.5 * (vector1[1] - vector2[1]) #laengengrad
-    dy = 111.3 * (vector2[2] - vector2[2]) # breitengrad
-    distance <- sqrt(dx * dx + dy * dy)
-    return(distance)
-  }
-  
-  
-}
-
-
-test <- distance_in_km(c(13,8), c(13.02, 8.02))
 ################################################################################################################################
 #   General Tasks 1. - 6.
 ################################################################################################################################
@@ -128,59 +61,26 @@ nrow(logistikverzug_k7)
 # Merge tables by IDNummber (id number)
 res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
 
+# Convert both rows to POSIXct for timediff calculation and rename columns
+logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.POSIXct(res$Produktionsdatum),Wareneingang = as.POSIXct(res$Wareneingang))
 
-# Issued one day after production date -> production date + 1
-res$VerspaetungInTagen <- as.integer((as.Date(res$Wareneingang) - (as.Date(res$Produktionsdatum)+1)))
-# TO DO: There is a cleaner way of doing this (reduce amount of information)
-logistics_delay <- data.frame(res$IDNummer, res$Produktionsdatum, res$Wareneingang, res$VerspaetungInTagen)
-delay_in_days <- logistics_delay$res.VerspaetungInTagen
+#Calculate Datediff without weekends -> help function
+date_diff_excluding_wekeends <- function(x, y) {
+  if(is.na(x) || is.na(y)) return(NA)
+  return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
+}
 
-# TO REMOVE WEEKENDS
-# Source: https://stackoverflow.com/questions/37150403/is-there-an-easy-way-to-tell-if-an-interval-overlaps-a-weekend-in-r
-#' Check if a weekday is within an interval
-#' 
-#' @param wday Day of week (integer 1-7)
-#' @param from Date. Can be a vector.
-#' @param to Date. Same length as `from` and must be greater than `from`.
-#' @param week_start 1 = Monday. 7 = Sunday
-#' 
-# UNCOMMENT BELOW
-# wday_in_interval = function(wday, from, to, week_start = 1) {
-#   if (wday < 1 | wday > 7) 
-#     stop("wday must be an integer from 1 to 7.")
-#   if (week_start)
-#     wday = 1 + (((wday - 2) + week_start ) %% 7)  # Translate wday to week_start = 1 (ISO standard)
-#   if (any(from > to, na.rm = TRUE))
-#     stop("`from` must come before `to`")
-#   
-#   # If the interval is greater than a week, it trivially contains any weekday
-#   over_a_week = difftime(from, to, units = "days") >= 7
-#   
-#   # Check if weekday is both smaller/greater than "from" and "to"
-#   days_from = as.numeric(strftime(from, "%u"))
-#   days_to = as.numeric(strftime(to, "%u"))
-#   contains_weekday = ifelse(
-#     strftime(from, "%V") == strftime(to, "%V"),  # Dates are in the same week?
-#     yes = wday >= days_from & wday <= days_to,
-#     no = wday >= days_from | wday <= days_to  # 
-#   )
-#   
-#   return(over_a_week | contains_weekday)
-# }
-#
-# logistics_delay <- logistics_delay %>%
-#   mutate(overlaps_saturday = wday_in_interval(6, from = res.Produktionsdatum, to = res.Wareneingang) ) %>%
-#   mutate(overlaps_sunday = wday_in_interval(7, from = res.Produktionsdatum, to = res.Wareneingang) ) %>%
-#   mutate(overlaps_weekend = overlaps_saturday | overlaps_sunday)
-# 
-# logistics_delay <- logistics_delay %>%
-#   mutate(VerspaetungKorrigiert = res.VerspaetungInTagen - as.integer(overlaps_saturday) - as.integer(overlaps_sunday))
-# 
-# delay_in_days <- logistics_delay$VerspaetungKorrigiert
+#Vectorize function
+date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
+
+#Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende plus ein Tag (Issued one day after production date)
+logistics_delay <- logistics_delay %>%
+  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang) + 1))
+
+delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
 # Draw histogram to see the distribution of how many components have been delivered with how much delay
-hist(logistics_delay$res.VerspaetungInTagen,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
-plot(table(delay_in_days))
+hist(delay_in_days,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
 
 # Specification of distribution from data: (https://www.r-project.org/conferences/useR-2009/slides/Delignette-Muller+Pouillot+Denis.pdf)
 #   1. Choose among a family of distributions the best candidates
@@ -192,152 +92,300 @@ plot(table(delay_in_days))
 
 descdist(delay_in_days, discrete = TRUE, boot = 100)
 
+# summary statistics
+# ------
+#   min:  3   max:  12 
+# median:  6 
+# mean:  6.057121 
+# estimated sd:  0.8257884 
+# estimated skewness:  0.5623495 
+# estimated kurtosis:  4.361576 
+
 ## Result: Negative Binomial and Poisson might fit best (Question: Negative Binomial even valid in theory? No binary data here.)
 
 ## Step 2: Fit given distributions (Always norm the data to min = 0 because distributions start with 0)
 
-fnbinom <- fitdist(delay_in_days - min(delay_in_days), "nbinom")
-plot(fnbinom)
-summary(fnbinom)
+# https://www.youtube.com/watch?v=5klSpGC2puU
+
+dists <- c("nbinom", "pois")
+fit <- list()
+for (i in 1:length(dists)) {
+  if (dists[i] == "nbinom") {
+    #fit by MLE
+    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i])
+  } else {
+    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i], method = "mme")
+  }
+}
+
+for (i in 1:length(dists)){
+  print(summary(fit[[i]]))
+}
+
+#Plot the results
+par(mfrow=c(2,2))
+plot.legend <- dists
+denscomp(fit, legendtext = plot.legend)
+cdfcomp (fit, legendtext = plot.legend)
+qqcomp  (fit, legendtext = plot.legend)
+ppcomp  (fit, legendtext = plot.legend)
+
 # Fitting of the distribution ' nbinom ' by maximum likelihood 
 # Parameters : 
-#   estimate Std. Error
-# size 9.838095e+06        NaN
-# mu   3.080599e+00 0.00317045
-# Loglikelihood:  -505362.1   AIC:  1010728   BIC:  1010750 
+#   estimate  Std. Error
+# size 1.862208e+06         NaN
+# mu   3.056683e+00 0.003157812
+# Loglikelihood:  -490149.5   AIC:  980303   BIC:  980324.3 
 # Correlation matrix:
 #   size  mu
 # size    1 NaN
 # mu    NaN   1
 
-fpoisson <- fitdist(delay_in_days - min(delay_in_days), "pois")
-plot(fpoisson)
-summary(fpoisson)
-# Fitting of the distribution ' pois ' by maximum likelihood 
+
+# Fitting of the distribution ' pois ' by matching moments 
 # Parameters : 
-#   estimate  Std. Error
-# lambda 3.080437 0.003170282
-# Loglikelihood:  -505362.1   AIC:  1010726   BIC:  1010737 
+#   estimate
+# lambda 3.057121
+# Loglikelihood:  -490149.3   AIC:  980300.6   BIC:  980311.3 
 
 ## Step 3: Assess goodness-of- fit
 
-fitfnbinom <- gofstat(fnbinom, discrete = TRUE)
-print(fitfnbinom)
-# Chi-squared statistic:  117879.3 
+goodness_of_fit <- list()
+for (i in 1:length(dists)) {
+  goodness_of_fit[[i]] <- gofstat(fit[[i]], discrete = TRUE)
+}
+
+for (i in 1:length(dists)){
+  print(goodness_of_fit[[i]])
+}
+
+# Chi-squared statistic:  236063 
 # Degree of freedom of the Chi-squared distribution:  4 
 # Chi-squared p-value:  0 
 # Chi-squared table:
 #   obscounts theocounts
-# <= 1   8518.00   57445.14
-# <= 2  81657.00   66798.94
-# <= 3 124094.00   68593.56
-# <= 4  67161.00   52827.31
-# <= 5  19973.00   32547.95
-# <= 6   4260.00   16711.20
-# > 6     827.00   11565.90
+# <= 1   4880.00   58490.77
+# <= 2  60778.00   67357.58
+# <= 3 170619.00   68630.21
+# <= 4  55015.00   52445.20
+# <= 5  12857.00   32061.69
+# <= 6   2069.00   16333.75
+# > 6     272.00   11170.79
 # 
 # Goodness-of-fit criteria
 # 1-mle-nbinom
-# Akaike's Information Criterion      1010728
-# Bayesian Information Criterion      1010750
+# Akaike's Information Criterion     980303.0
+# Bayesian Information Criterion     980324.3
 
-fitfpoisson <- gofstat(fpoisson, discrete = TRUE)
-print(fitfpoisson)
-# Chi-squared statistic:  117878 
+# Chi-squared statistic:  236065.1 
 # Degree of freedom of the Chi-squared distribution:  5 
 # Chi-squared p-value:  0 
 # Chi-squared table:
 #   obscounts theocounts
-# <= 1   8518.00   57452.16
-# <= 2  81657.00   66802.74
-# <= 3 124094.00   68593.86
-# <= 4  67161.00   52824.76
-# <= 5  19973.00   32544.67
-# <= 6   4260.00   16708.63
-# > 6     827.00   11563.19
+# <= 1   4880.00   58471.40
+# <= 2  60778.00   67347.39
+# <= 3 170619.00   68629.71
+# <= 4  55015.00   52452.33
+# <= 5  12857.00   32070.62
+# <= 6   2069.00   16340.63
+# > 6     272.00   11177.91
 # 
 # Goodness-of-fit criteria
-# 1-mle-pois
-# Akaike's Information Criterion    1010726
-# Bayesian Information Criterion    1010737
+# 1-mme-pois
+# Akaike's Information Criterion   980300.6
+# Bayesian Information Criterion   980311.3
 
 ## Result: Both distributions fit equally well, but overall they don't really fit.
 ## Therefore, same process - now with continuous distributions (should work due to n being high enough)
 
 ## Step 1: Generate skewness-kurtosis graph to choose distributions
 
+par(mfrow=c(1,1))
 descdist(delay_in_days, discrete = FALSE, boot = 100)
 
 # summary statistics
 # ------
-#   min:  0   max:  11 
-# median:  3 
-# mean:  3.080437 
-# estimated sd:  1.012302 
-# estimated skewness:  0.5674067 
-# estimated kurtosis:  3.630055 
+#   min:  3   max:  12 
+# median:  6 
+# mean:  6.057121 
+# estimated sd:  0.8257884 
+# estimated skewness:  0.5623495 
+# estimated kurtosis:  4.361576 
 
-## Result: Pretty clearly lognormal, Weibull is close so we take it as comparison
+## Result: Pretty clearly lognormal, Weibull is close so we take it as comparison.
 
 ## Step 2: Fit given distributions
 
-flnorm <- fitdist(delay_in_days - 0.9, "lnorm")
-plot(flnorm)
-summary(flnorm)
-# Fitting of the distribution ' lnorm ' by maximum likelihood 
-# Parameters : 
-#   estimate   Std. Error
-# meanlog 1.7914898 0.0002973244
-# sdlog   0.1646034 0.0002102052
-# Loglikelihood:  -430989.8   AIC:  861983.7   BIC:  862004.9 
-# Correlation matrix:
-#   meanlog         sdlog
-# meanlog  1.000000e+00 -3.183187e-12
-# sdlog   -3.183187e-12  1.000000e+00
+dists <- c("lnorm", "weibull")
+fit <- list()
+for (i in 1:length(dists)) {
+  if(dists[i] == "weibull") {
+    # https://stats.stackexchange.com/questions/441516/how-to-fit-weibull-distribution-using-mme-method-and-find-the-estimates-in-r
+    #function to calculate sample raw moment
+    memp  <-  function(x, order) {
+      mean(x^order)
+    }
+    
+    #fit by MME
+    fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme", order=c(1, 2), memp=memp, 
+            start=list(shape=6, scale=6), lower=0, upper=Inf)
+  } else {
+    fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme")
+  }
+}
 
-fweibull <- fitdist(delay_in_days, "weibull")
-plot(fweibull)
-summary(fweibull)
-# Fitting of the distribution ' weibull ' by maximum likelihood 
+for (i in 1:length(dists)){
+  print(summary(fit[[i]]))
+}
+
+#Plot the results
+par(mfrow=c(2,2))
+plot.legend <- dists
+denscomp(fit, legendtext = plot.legend)
+cdfcomp (fit, legendtext = plot.legend)
+qqcomp  (fit, legendtext = plot.legend)
+ppcomp  (fit, legendtext = plot.legend)
+
+# Fitting of the distribution ' lnorm ' by matching moments 
 # Parameters : 
-#   estimate  Std. Error
-# shape 5.979374 0.007563124
-# scale 6.515010 0.002087809
-# Loglikelihood:  -458880.8   AIC:  917765.6   BIC:  917786.9 
-# Correlation matrix:
-#   shape    scale
-# shape 1.000000 0.333769
-# scale 0.333769 1.000000
+#   estimate
+# meanlog 1.7920265
+# sdlog   0.1357061
+# Loglikelihood:  -371077.4   AIC:  742158.7   BIC:  742180 
+
+# Fitting of the distribution ' weibull ' by matching moments 
+# Parameters : 
+#   estimate
+# shape 8.756372
+# scale 6.404379
+# Loglikelihood:  -427915.9   AIC:  855835.8   BIC:  855857.1 
 
 ## Step 3: Assess goodness-of- fit
 
-fitflnorm <- gofstat(flnorm)
-print(fitflnorm)
+goodness_of_fit <- list()
+for (i in 1:length(dists)) {
+  goodness_of_fit[[i]] <- gofstat(fit[[i]])
+}
+
+for (i in 1:length(dists)){
+  print(goodness_of_fit[[i]])
+}
+
 # Goodness-of-fit statistics
-# 1-mle-lnorm
-# Kolmogorov-Smirnov statistic 2.064351e-01
-# Cramer-von Mises statistic   2.536715e+03
-# Anderson-Darling statistic   1.344775e+04
+# 1-mme-lnorm
+# Kolmogorov-Smirnov statistic 2.849893e-01
+# Cramer-von Mises statistic   4.811740e+03
+# Anderson-Darling statistic   2.244218e+04
 # 
 # Goodness-of-fit criteria
-# 1-mle-lnorm
-# Akaike's Information Criterion    861983.7
-# Bayesian Information Criterion    862004.9
+# 1-mme-lnorm
+# Akaike's Information Criterion    742158.7
+# Bayesian Information Criterion    742180.0
 
-fitfweibull <- gofstat(fweibull)
-print(fitfweibull)
 # Goodness-of-fit statistics
-# 1-mle-weibull
-# Kolmogorov-Smirnov statistic     0.2418271
-# Cramer-von Mises statistic    2753.6562598
+# 1-mme-weibull
+# Kolmogorov-Smirnov statistic     0.3393315
+# Cramer-von Mises statistic    5440.4870071
 # Anderson-Darling statistic             Inf
 # 
 # Goodness-of-fit criteria
-# 1-mle-weibull
-# Akaike's Information Criterion      917765.6
-# Bayesian Information Criterion      917786.9
+# 1-mme-weibull
+# Akaike's Information Criterion      855835.8
+# Bayesian Information Criterion      855857.1
 
 ## Result: Log-norm distribution fits much better than Weibull, but still not really good
+
+################################################################################################################################
+# Aufgabe 2
+# Why does it make sense to store the available data in separate files instead of saving everything in a huge table? 
+# Name at least four benefits. The available tables represent a typical data base structure. How is it called?
+#################################################################################################################################
+
+#Benefit 1 
+# Accessibility
+# Structuring and storing data in separate files allows easier access and thus easier readability of the files. 
+# Compared to large data sets, the relevant information would have to be extracted. 
+# In the case of small files with adequate designations, the user has the possibility to read out the desired information 
+# in a targeted manner and to process it directly. This leads to the next benefit of performance. 
+
+# Benefit 2 
+# Performance / Operating time
+# By storing the files in small separate files, the access time to the files is significantly reduced. 
+# Reading or opening large files requires a lot of memory and operations of the computer. 
+# By dividing them into small files, it is possible to work with the files faster. 
+
+#Benefit 3 
+# Saving memory / space
+# As announced in performance, reducing a large dataset to small seperate ones can also reduce storage space. 
+# Data sets that are not necessary or sensibly grouped can be swapped out or made accessible elsewhere, 
+# thus avoiding unnecessary memory consumption. 
+
+#Benefit 4
+# data accuracy and integrity.
+# Data integrity is the overall accuracy, completeness, and consistency of data. 
+# If unforeseen events or errors damage the integrity of the data, it is very costly to fix this in a large file. 
+# If separate files are used and integrity is violated there, the area to be processed is significantly limited. 
+# The small separate files can thus be recovered more quickly without the risk of violating new integrity in other data fields. 
+
+
+#The typical database structure?
+# Not relational because we have no information about relations between the tables. No information about foreign/primary keys. 
+
+################################################################################################################################
+# Aufgabe 3
+# How many of the parts T16 ended up in vehicles registered in Adelshofen?
+#################################################################################################################################
+
+# Pull IDs for relevant parts
+txt_t16 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
+txt_t16 <- paste('"ID" | |', txt_t16)
+txt_t16 <- gsub(x = txt_t16, pattern = "\\s\\|\\s\\|\\s", replacement = ",")
+txt_t16 <- gsub(x = txt_t16, pattern = "\\s", replacement = "\n")
+txt_t16 <- substring(txt_t16, 1, nchar(txt_t16) - 1)
+df_t16 <- read_delim(I(txt_t16), delim = ",", trim_ws = TRUE)
+df_t16 <- dplyr::select(df_t16, -1)
+rm(txt_t16)
+ids_t16 <- df_t16$ID_T16.x
+rm(df_t16)
+
+# Pull data about relevant cars
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+adelshofen_zulassungen <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+
+# Pull data about which cars contain which components
+Bestandteile_Fahrzeuge_OEM1_Typ11 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ21 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ21.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ22 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ22.csv")) %>% dplyr::select(-1)
+Bestandteil_Fahrzeuge <- rbind(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
+rm(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
+
+# First filter components that containt part T16 by looking at datasets
+# Then importing relevant datasets
+Bestandteile_Komponente_K2LE2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2LE2.csv"))
+Bestandteile_Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
+Bestandteile_Komponente_K2LE2 <- Bestandteile_Komponente_K2LE2 %>% dplyr::select(c("ID_T16", "ID_K2LE2")) %>% rename(ID_Komponente = ID_K2LE2)
+Bestandteile_Komponente_K2ST2 <- Bestandteile_Komponente_K2ST2 %>% dplyr::select(c("ID_T16", "ID_K2ST2")) %>% rename(ID_Komponente = ID_K2ST2)
+Bestandteile_Komponenten <- rbind(Bestandteile_Komponente_K2LE2, Bestandteile_Komponente_K2ST2)
+
+# (Seem to have same data)
+#Komponente_K2LE2 <- readLines(here("Data", "Komponente", "KOmponente_K2LE2.txt"))
+#Komponente_K2LE2[1] <- paste0('"ID"\\', Komponente_K2LE2[1])
+#Komponente_K2LE2 <- gsub(x = Komponente_K2LE2, pattern = "\\s", replacement = "")
+#Komponente_K2LE2 <- read_delim(I(Komponente_K2LE2), delim = "\\", trim_ws = TRUE)
+#Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
+
+Autos_mit_T16 <- adelshofen_zulassungen %>%
+  merge(Bestandteil_Fahrzeuge, by.x = "IDNummer", by.y = "ID_Fahrzeug") %>%
+  merge(Bestandteile_Komponenten, by.x = "ID_Sitze", by.y = "ID_Komponente") %>%
+  filter(ID_T16 %in% ids_t16)
+
+Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
+
+Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
+#  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
+
 
 ################################################################################################################################
 # Aufgabe 4
