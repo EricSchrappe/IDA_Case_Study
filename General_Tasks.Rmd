@@ -117,18 +117,102 @@ The small separate files can thus be recovered more quickly without the risk of 
 # Question 3
 How many of the parts T16 ended up in vehicles registered in Adelshofen?
 ````{r}
-print("TODO")
+# Pull IDs for relevant parts
+txt_t16 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
+txt_t16 <- paste('"ID" | |', txt_t16)
+txt_t16 <- gsub(x = txt_t16, pattern = "\\s\\|\\s\\|\\s", replacement = ",")
+txt_t16 <- gsub(x = txt_t16, pattern = "\\s", replacement = "\n")
+txt_t16 <- substring(txt_t16, 1, nchar(txt_t16) - 1)
+df_t16 <- read_delim(I(txt_t16), delim = ",", trim_ws = TRUE)
+df_t16 <- dplyr::select(df_t16, -1)
+rm(txt_t16)
+ids_t16 <- df_t16$ID_T16.x
+rm(df_t16)
+
+# Pull data about relevant cars
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+adelshofen_zulassungen <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+
+# Pull data about which cars contain which components
+Bestandteile_Fahrzeuge_OEM1_Typ11 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ21 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ21.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ22 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ22.csv")) %>% dplyr::select(-1)
+Bestandteil_Fahrzeuge <- rbind(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
+rm(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
+
+# First filter components that containt part T16 by looking at datasets
+# Then importing relevant datasets
+Bestandteile_Komponente_K2LE2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2LE2.csv"))
+Bestandteile_Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
+Bestandteile_Komponente_K2LE2 <- Bestandteile_Komponente_K2LE2 %>% dplyr::select(c("ID_T16", "ID_K2LE2")) %>% rename(ID_Komponente = ID_K2LE2)
+Bestandteile_Komponente_K2ST2 <- Bestandteile_Komponente_K2ST2 %>% dplyr::select(c("ID_T16", "ID_K2ST2")) %>% rename(ID_Komponente = ID_K2ST2)
+Bestandteile_Komponenten <- rbind(Bestandteile_Komponente_K2LE2, Bestandteile_Komponente_K2ST2)
+
+# (Seem to have same data)
+#Komponente_K2LE2 <- readLines(here("Data", "Komponente", "KOmponente_K2LE2.txt"))
+#Komponente_K2LE2[1] <- paste0('"ID"\\', Komponente_K2LE2[1])
+#Komponente_K2LE2 <- gsub(x = Komponente_K2LE2, pattern = "\\s", replacement = "")
+#Komponente_K2LE2 <- read_delim(I(Komponente_K2LE2), delim = "\\", trim_ws = TRUE)
+#Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
+
+Autos_mit_T16 <- adelshofen_zulassungen %>%
+  merge(Bestandteil_Fahrzeuge, by.x = "IDNummer", by.y = "ID_Fahrzeug") %>%
+  merge(Bestandteile_Komponenten, by.x = "ID_Sitze", by.y = "ID_Komponente") %>%
+  filter(ID_T16 %in% ids_t16)
+
+Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
+
+Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
+
+sprintf("Es wurden %s Autos in Adelshofen zugelassen, die Komponenten T16 enthalten", length(Unique_Autos_mit_T16))
+#  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
 ```
 
 
 # Question 4 
 Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have? Put your answers into a table which is integrated into your Markdown document and describe the characteristics of the data type(s).
+```{r echo=FALSE, results='asis'}
+# Pfad setzen -> CSV einlesen alle Zulassungen
+#alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+#Alle Zulassungen wurde bereits importiert!
+
+# Check structure of alle_zulassungen
+#str(alle_zulassungen)
+#colnames(alle_zulassungen)
+
+#typeof(alle_zulassungen$IDNummer)
+descrip_X = "The Integer data type is used for integer values.To store a value as an integer, we need to specify it as such. The integer data type is commonly used for discrete only values like unique ids.We can store as well as convert a value into an integer type using the as.integer() function. If the data consists of only numbers, like decimals,whole numbers, then we call it numeric data. In numeric data, the numbers can be positive or negative. If the data consists only of whole numbers, it is called as integer. Integers too may take negative or positive values. In the present example, the integer number 408097 serves as an example of an integer. -408097,52 would be an nummeric datatype for example."
+
+
+descrip_IDNummer = "The character data type stores character values or strings. Strings in R can contain the alphabet, numbers, and symbols. The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas. In the present case '11-1-11-1' is used as an ID number, which is splitted through '-'. Without the '-' the ID could be defined as an integer."
+
+descrip_Gemeinde = "The character data type stores character values or strings. Strings in R can contain the alphabet, numbers, and symbols. The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas. The column 'Gemeinden' contains all places where cars were registered. The city names are thus displayed as char."
+
+
+descrip_Zulassung = "The character data type stores character values or strings.Strings in R can contain the alphabet, numbers, and symbols. The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas. 'Zulassung' contains dates as characters. For calculating/working reasons the could be converted as.Dates() or as.POSIXct(), as seen in different tasks in this course."
+
+
+help_df <- data.frame(Row_Name = colnames(alle_zulassungen),
+                      Data_Types=c(typeof(alle_zulassungen$X),typeof(alle_zulassungen$IDNummer),typeof(alle_zulassungen$Gemeinden),typeof(alle_zulassungen$Gemeinden) ),
+                      Examples=c(alle_zulassungen$X[1], alle_zulassungen$IDNummer[1], alle_zulassungen$Gemeinden[1], alle_zulassungen$Zulassung[1]),
+                      Characteristics=c(descrip_X,descrip_IDNummer, descrip_Gemeinde, descrip_Zulassung))
+
+knitr::kable(help_df, "pipe",caption = "Characteristics from attributes 'Zulassung aller Fahrzeuge'",align=c("l","l","l","l"),
+             col.names=c("Row name", "Data type", "Example", "Characteristics"))
+#help_df <- table(help_df)
+#help_df
+```
 
 # Question 5 
 You want to publish your application. Why does it make sense to store the records on the database of a server? Why can’t you store the records on your personal computer? What is an easy way to make your application available to your customers? Please name 4 aspects.
 
-* Servers are optimized to make resources available remotely via the internet.Thus, people from all over the world can access the data if it's on a server.A server is also usually running non-stop. The data is thus available any time.
-Nowadays usually servers are used that are managed by specialized companies.Furthermore storing your data on a server and making it available for everyone, you have the possibility to easily manage the performance by scaling up or down the server if necessary. Storing the data locally leads to a limitation of the performance to the given technical units of the computer. A lot of challenges, like security aspects, are therefore already taken care of.
+* Servers are optimized to make resources available remotely via the internet.Thus, people from all over the world can access the data if it's on a server. A server is also usually running non-stop. The data is thus available any time.
+Nowadays usually servers are used that are managed by specialized companies.
+
+* Storing your data on a server and making it available for everyone, you have the possibility to easily manage the performance by scaling up or down the server if necessary. Storing the data locally leads to a limitation of the performance to the given technical units of the computer. A lot of challenges, like security aspects, are therefore already taken care of.
 
 * Storing records on one's own computer might work for a small project where no one else is involved.When other people need to have access to the data, though, we face several problems:
   * Usually our computer does not run all the time. But maybe the data should be accessible any time.
@@ -143,12 +227,12 @@ Furthermore, we are taking advantage of the specialization of hosting companies,
 # Question 6 
 On 11.08.2010 there was a hit and run accident. There is no trace of the license plate of the car involved in the accident. The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
 
-````{r}
+````{r, message = FALSE, echo = FALSE}
 # Startdatenpunkt
 gesuchte_karosserie <- 'K5-112-1122-79'
 
-# CSV einlesen alle Zulassungen
-alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+# CSV einlesen alle Zulassungen - BEREITS IMPORTIERT
+#alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
 
 # CSV einlesen Bestandteile Fahrzeuge OEM1
 Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
