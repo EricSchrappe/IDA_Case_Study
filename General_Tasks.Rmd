@@ -10,12 +10,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Include Packages
-```{r, echo=FALSE, results='hide'}
+```{r, , message = FALSE, echo = FALSE}
 if (!require(install.load)){
   install.packages("install.load")
 }
 library(install.load)
 install_load("tidyverse", "dplyr", "tidyr", "stringr", "readr", "knitr", "here", "ggplot2", "fitdistrplus", "purrr", "plotly", "lubridate")
+print("Successfully loaded all packages!")
 ```
 
 
@@ -93,6 +94,8 @@ print("TODO")
 
 Why does it make sense to store the available data in separate files instead of saving everything in a huge table? Name at least four benefits. The available tables represent a typical data base structure. How is it called?
 
+**Four Benefits: ** 
+
 * **Accessibility: ** 
 Structuring and storing data in separate files allows easier access and thus easier readability of the files. 
 Compared to large data sets, the relevant information would have to be extracted. 
@@ -112,6 +115,19 @@ Data integrity is the overall accuracy, completeness, and consistency of data.
 If unforeseen events or errors damage the integrity of the data, it is very costly to fix this in a large file. 
 If separate files are used and integrity is violated there, the area to be processed is significantly limited. 
 The small separate files can thus be recovered more quickly without the risk of violating new integrity in other data fields. 
+
+**Typical database structure: ** 
+"Normalization of a relational database model is the division of attributes into multiple relations (tables) using the normalization rules and their normal forms so that a form is created that no longer contains avoidable redundancies. The goal of normalization is to create a redundancy-free data storage. Redundancy-free means that data can be removed without any loss of information. In database development, the third normal form is often sufficient to provide the perfect balance of redundancy, performance, and flexibility for a database. Of course, there are also special cases, e.g. in the scientific field, where a database can or must be normalized up to the 5th normal form." [Normalization](https://www.datenbanken-verstehen.de/datenmodellierung/normalisierung/)
+
+* **Zeroth Normal Form: **
+The zeroth normal form is when all information in a table is present and still unnormalized. In many cases, the zeroth normal form is present during the requirements analysis of a database. Requirements analysis in database development begins with the collection of unstructured and unsorted information.  If we look at the various tables that have been made available to us, it quickly becomes apparent that we are in the zeroth normal form with the existing data records. The data sets are available in various formats, such as txt files or xlxs files. Additionally, there is no formatting of existing records, yet the records exist unsorted. In summary, the data exists unnormalized and the zeroth normal form is satisfied. 
+
+* **First normal form: **
+First Normal Form (1NF) is satisfied when all information in a table is atomic. It means that each piece of information within a table gets its own table column and related information, such as the zip code and the city, may not be present in one table column. On closer inspection or editing of the data sets, the columns are mostly atomic. Depending on the file type, different column divisions such as ',' or '|' can be recognized. Nevertheless, basically no splitting of existing columns is necessary. Thus the first normal form of the given data is fulfilled. 
+
+* **Second normal form: **
+The second normal form is an important step towards a fully normalized relational database. It checks whether a complete functional or only a functional dependency of values to a given subset exists.
+A relation type is in second normal form (2NF) exactly when it is in first normal form (1NF) and every non-key attribute is fully functionally dependent on every key candidate. In the existing datasets, primary keys exist in all tables and are recognizable as identificators for the respective row. At the beginning of the analysis it can be guessed that e.g. attributes like 'ID_vehicle' are primary keys for further data sets. Nevertheless, there is a functional dependency to the given primary key within a data set. Thus the second normal form would be fulfilled. 
 
 
 # Question 3
@@ -182,6 +198,7 @@ Which data types do the attributes of the registration table “Zulassungen_alle
 # Check structure of alle_zulassungen
 #str(alle_zulassungen)
 #colnames(alle_zulassungen)
+#attributes(alle_zulassungen)
 
 #typeof(alle_zulassungen$IDNummer)
 descrip_X = "The Integer data type is used for integer values.To store a value as an integer, we need to specify it as such. The integer data type is commonly used for discrete only values like unique ids.We can store as well as convert a value into an integer type using the as.integer() function. If the data consists of only numbers, like decimals,whole numbers, then we call it numeric data. In numeric data, the numbers can be positive or negative. If the data consists only of whole numbers, it is called as integer. Integers too may take negative or positive values. In the present example, the integer number 408097 serves as an example of an integer. -408097,52 would be an nummeric datatype for example."
