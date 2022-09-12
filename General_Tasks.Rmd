@@ -86,9 +86,13 @@ c) Visualize the distribution in an appropriate way by displaying the histogram 
 print("TODO")
 ```
 d) Please describe how you proceed, if you have to create a decision tree, which is describing the classification problem to classify whether the component (K7) is defective (Fehlerhaft) or not? (Hint: You might want to work with visualizations.)
-```{r}
-print("TODO")
-```
+
+
+Decision Tree with Machine Learning
+In machine learning, classification refers to a predictive modeling problem where a class label is predicted for a given example of input data. In the component K7 we have the label "Fehlerhaft" and all input data, all columns except "Fehlerhaft. Classification requires a training dataset with many examples of inputs and outputs from which to learn. In the present case, we can use our existing data as a training dataset. A model will use the training dataset and will calculate how to best map examples of input data to specific class labels. As such, the training dataset must be sufficiently representative of the problem and have many examples of each class label. The labels should be mapped to a numeric value, like '0' for 'Nicht Fehlerhaft' and '1' for 'Fehlerhaft'.There is no good theory on how to map algorithms onto problem types, instead, it is  recommended that a practitioner use controlled experiments and discover which algorithm and algorithm configuration results in the best performance for a given classification task. Classification predictive modeling algorithms are evaluated based on their results.
+
+Regarding our given data, we can have a closer look at the binary classification, which is typically used for labels like explained above, '0' and '1'. 'Nicht Fehlerhaft' would be the normal state and 'Fehlerhaft' the opposite. 
+
 
 # Question 2
 
