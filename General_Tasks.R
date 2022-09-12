@@ -75,7 +75,7 @@ date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
 
 #Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende plus ein Tag (Issued one day after production date)
 logistics_delay <- logistics_delay %>%
-  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang) + 1))
+  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang)) - 1)
 
 delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
