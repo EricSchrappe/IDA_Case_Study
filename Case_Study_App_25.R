@@ -10,6 +10,8 @@
 # Necessary libraries
 library(shiny)
 library(leaflet)
+library(leafpop)
+library(lattice)
 library(DT)
 library(tidyverse)
 library(writexl)
@@ -17,6 +19,10 @@ library(writexl)
 # Loading the dataset and ensure that the object will be a dataframe
 dataset <- read_csv("Final_dataset_group_25.csv")
 dataset <- data.frame(dataset)
+
+# Erstellt einen temporären Ordner
+folder <- tempfile()
+dir.create(folder)
 
 # Define UI for application that shows a map, bar chart, the data table with all relevant columns as well as a download function
 ui <- navbarPage("Defective registered diesel-engine vehicles",
@@ -141,6 +147,30 @@ server <- function(input, output) {
       df <- df %>% gather(key="Defect_Y_N", value="Count", 2:3)
     })
     
+    map_plot_data <- reactive({
+      
+      # Define empty data frame with necessary columns
+      df <- data.frame(Gemeinden = character(),
+                       Defect = logical(),
+                       Total = numeric(),
+                       Radius = numeric())
+      
+      # Loop through the amount of radii selected by the user
+      for(x in 1:input$map_number){
+        
+        # Calculate the respective numbers
+        community_data <- vehicles() %>% 
+                            filter(Distance_KM <= x*input$map_radius) %>% 
+                            group_by(Gemeinden,Defect) %>% 
+                            summarise(Total = n()) %>% 
+                            mutate(Radius = x*input$map_radius)
+        
+        # Add the data to the data frame
+        df <- df %>% bind_rows(community_data)
+      }
+      df
+    })
+    
     map_data_vehicle <- reactive({
       
       # Define empty data frame with necessary columns
@@ -168,25 +198,99 @@ server <- function(input, output) {
       # Create a leaflet map with the created data frame in function "map_data_vehicle"
       the_map <- leaflet(data= map_data_vehicle()) %>% 
         addTiles() %>% 
-        setView(lng = 13.3777, lat = 52.5162, zoom = 10) %>% 
+        setView(lng = 13.3777, lat = 52.5162, zoom = 10) 
+      
+      #Load popup datasets
+      registrations <- map_click_registrations()
+      
+      # Loop through the amount of radii selected by the user and add the concentric circle to the leaflet map object
+      for(x in 1:input$map_number){
+        the_map <- addCircles(map = the_map, data= the_map, lng = 13.3777, lat = 52.5162, radius = x*input$map_radius*1000)
+      }
+      the_map %>% 
         addCircleMarkers(
+          layerId = ~Gemeinden, 
+          group = x*input$map_radius,
           lng = ~Laengengrad, 
           lat = ~Breitengrad,
           radius = 6,
           color = "green",
           stroke = FALSE,
           fillOpacity = 0.5)
-      
-      # Loop through the amount of radii selected by the user and add the concentric circle to the leaflet map object
-      for(x in 1:input$map_number){
-        the_map <- addCircles(map = the_map, data= the_map, lng = 13.3777, lat = 52.5162, radius = x*input$map_radius*1000)
+    })
+    
+    map_click_plot <- reactive({
+      click <- input$map_marker_click
+      print(click)
+      if(is.null(click$id)){
+        return()
+      }else{
+        filtered_chart <- map_plot_data() %>% 
+                            filter(Gemeinden == click$id & Radius == click$group) %>% 
+                            ggplot(aes(x=Defect, y=Total)) +
+                              geom_col() +
+                              geom_text(aes(label= Total), vjust = 1.5, colour = "white")
+        
+        print(filtered_chart)
+        return(filtered_chart)
       }
-      the_map
+    })
+    
+    map_click_registrations <- reactive({
+      click <- input$map_marker_click
+      print(click)
+      if(is.null(click$id)){
+        return()
+      }else{
+        click_registrations <- map_plot_data() %>% 
+                                filter(Gemeinden == click$id & Radius == click$group) %>% 
+                                group_by(Gemeinden, Radius) %>% 
+                                summarise(Total = sum(Total))
+        
+        print(click_registrations)
+        return(click_registrations)
+      }
+    })
+    
+    # When map is clicked, show a popup with community info
+    showPopup <- function(community, lat, lng) {
+      registrations <- map_click_registrations()
+      plot <- map_click_plot()
+      svg(filename= paste(folder,"plot.svg", sep = "/"),
+          width = 500 * 0.005, height = 300 * 0.005)
+      print(plot)
+      dev.off()
+      
+      content <- paste("<h3>Community:</h3>",
+                       registrations$Gemeinden,
+                       "<br>",
+                       "<strong>Number of vehicles registered in this community:</strong>",
+                       "<br>",
+                       registrations$Total,
+                       "<br>",
+                       "<br>",
+                       paste(readLines(paste(folder,"plot.svg",sep="/")), 
+                       collapse = ""))
+      
+      leafletProxy("map") %>% addPopups(lng = lng, lat = lat, content, layerId = community)
+    }
+    
+    observeEvent(input$map_marker_click, {
+      leafletProxy("map") %>% clearPopups()
+      click <- input$map_marker_click
+  
+      if(is.null(click$id)){
+        return()
+      }else{
+        isolate({
+          showPopup(click$id, click$lat, click$lng)
+        })
+      }
     })
     
     # Create the map output
-    output$map <- renderLeaflet({
-        map <- create_map()
+    output$map <- renderLeaflet({  
+      map <- create_map()
     })
     
     # Create the bar plot output

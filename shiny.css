@@ -14,3 +14,7 @@ html, body{
 .allround_padding{
   padding: 15px 10px 15px 10px;
 }
+
+.popup{
+  margin: 100px;
+}

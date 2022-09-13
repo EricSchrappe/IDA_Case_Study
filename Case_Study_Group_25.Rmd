@@ -385,6 +385,29 @@ entire_defective_data <- defective_vehicle_to_parts %>%
 #write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 
 
+
+df <- data.frame(Gemeinden = character(),
+                 Defect = logical(),
+                 Total = numeric(),
+                 Radius = numeric())
+      
+# Loop through the amount of radii selected by the user
+for(x in 1:2){
+  
+  # Calculate the respective numbers
+  community_data <- entire_defective_data %>% 
+    filter(Distance_KM <= x*20) %>% 
+    group_by(Gemeinden,Defect) %>% 
+    summarise(Total = n()) %>% 
+    mutate(Radius = x*20)
+  
+  print(community_data)
+  df <- df %>% bind_rows(community_data)
+}
+
+df %>% 
+  filter(Gemeinden == "FEHRBELLIN")
+
  
 
 ```
