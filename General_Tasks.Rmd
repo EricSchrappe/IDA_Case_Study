@@ -89,9 +89,28 @@ d) Please describe how you proceed, if you have to create a decision tree, which
 
 
 Decision Tree with Machine Learning
-In machine learning, classification refers to a predictive modeling problem where a class label is predicted for a given example of input data. In the component K7 we have the label "Fehlerhaft" and all input data, all columns except "Fehlerhaft. Classification requires a training dataset with many examples of inputs and outputs from which to learn. In the present case, we can use our existing data as a training dataset. A model will use the training dataset and will calculate how to best map examples of input data to specific class labels. As such, the training dataset must be sufficiently representative of the problem and have many examples of each class label. The labels should be mapped to a numeric value, like '0' for 'Nicht Fehlerhaft' and '1' for 'Fehlerhaft'.There is no good theory on how to map algorithms onto problem types, instead, it is  recommended that a practitioner use controlled experiments and discover which algorithm and algorithm configuration results in the best performance for a given classification task. Classification predictive modeling algorithms are evaluated based on their results.
+In machine learning, classification refers to a predictive modeling problem where a class label is predicted for a given example of input data. In the component K7 we have the label "Fehlerhaft" and all input data, all columns except "Fehlerhaft. Classification requires a training dataset with many examples of inputs and outputs from which to learn. In the present case, we can use our existing data as a training dataset. A model will use the training dataset and will calculate how to best map examples of input data to specific class labels. As such, the training dataset must be sufficiently representative of the problem. The labels should be mapped to a numeric value, like '0' for 'Fehlerhaft' and '1' for 'Nicht Fehlerhaft'.There is no good theory on how to map algorithms onto problem types, instead, it is  recommended that a practitioner use controlled experiments and discover which algorithm and algorithm configuration results in the best performance for a given classification task. Classification predictive modeling algorithms are evaluated based on their results. 
 
-Regarding our given data, we can have a closer look at the binary classification, which is typically used for labels like explained above, '0' and '1'. 'Nicht Fehlerhaft' would be the normal state and 'Fehlerhaft' the opposite. 
+Regarding our given data, we can have a closer look at the binary logistical regression classification, which typically measures the relationship between the categorical target variable and one or more independent variables. It is useful for situations in which the outcome for a target variable can have only two possible types (in other words, it is binary), like explained above, '0' and '1'. Not only does binary logistic regression allow you to assess how well your set of variables predicts your categorical dependent variable and determine the “goodness-of-fit” of your model as does regular linear regression, but also it provides a summary of the accuracy of the classification of cases, which helps you determine the percent of predictions made from this model/equation that will be correct.
+
+The predicted Y (notating Yc) stands for the predicted probability that the result is a “1.” And, of course, a probability must be between 0 and 1 (or, 0–100%), by definition. In a “regular” simple linear regression, our regression line is
+
+Yc = a + b*X
+
+So, in essence, we have a linear regression equation, or, if there are several X’s (up to n) like in our case:
+
+Yc= a + b1*X1 + b2*X2 + b3.. + bn *Xn
+
+The criterion of maximum likelihood estimation finds values of “a” and “b” that maximize the probability of obtaining the sample data you actually have. In R, after checking and cleaning our dataset, we can use the function glm(). glm() is used to fit generalized linear models, specified by giving a symbolic description of the linear predictor and a description of the error distribution. Als "formula" kann hierfür "binominal" verwendet werden für die binary logistical regression. 
+
+
+
+
+
+
+It is common to model a binary classification task with a model that predicts a Bernoulli probability distribution for each example.The Bernoulli distribution is a discrete probability distribution that covers a case where an event will have a binary outcome as either a 0 or 1. For classification, this means that the model predicts a probability of an example belonging to class 1, or the abnormal state. 
+
+
 
 
 # Question 2
@@ -121,17 +140,10 @@ If separate files are used and integrity is violated there, the area to be proce
 The small separate files can thus be recovered more quickly without the risk of violating new integrity in other data fields. 
 
 **Typical database structure: ** 
-"Normalization of a relational database model is the division of attributes into multiple relations (tables) using the normalization rules and their normal forms so that a form is created that no longer contains avoidable redundancies. The goal of normalization is to create a redundancy-free data storage. Redundancy-free means that data can be removed without any loss of information. In database development, the third normal form is often sufficient to provide the perfect balance of redundancy, performance, and flexibility for a database. Of course, there are also special cases, e.g. in the scientific field, where a database can or must be normalized up to the 5th normal form." [Normalization](https://www.datenbanken-verstehen.de/datenmodellierung/normalisierung/)
-
-* **Zeroth Normal Form: **
-The zeroth normal form is when all information in a table is present and still unnormalized. In many cases, the zeroth normal form is present during the requirements analysis of a database. Requirements analysis in database development begins with the collection of unstructured and unsorted information.  If we look at the various tables that have been made available to us, it quickly becomes apparent that we are in the zeroth normal form with the existing data records. The data sets are available in various formats, such as txt files or xlxs files. Additionally, there is no formatting of existing records, yet the records exist unsorted. In summary, the data exists unnormalized and the zeroth normal form is satisfied. 
-
-* **First normal form: **
-First Normal Form (1NF) is satisfied when all information in a table is atomic. It means that each piece of information within a table gets its own table column and related information, such as the zip code and the city, may not be present in one table column. On closer inspection or editing of the data sets, the columns are mostly atomic. Depending on the file type, different column divisions such as ',' or '|' can be recognized. Nevertheless, basically no splitting of existing columns is necessary. Thus the first normal form of the given data is fulfilled. 
-
-* **Second normal form: **
-The second normal form is an important step towards a fully normalized relational database. It checks whether a complete functional or only a functional dependency of values to a given subset exists.
-A relation type is in second normal form (2NF) exactly when it is in first normal form (1NF) and every non-key attribute is fully functionally dependent on every key candidate. In the existing datasets, primary keys exist in all tables and are recognizable as identificators for the respective row. At the beginning of the analysis it can be guessed that e.g. attributes like 'ID_vehicle' are primary keys for further data sets. Nevertheless, there is a functional dependency to the given primary key within a data set. Thus the second normal form would be fulfilled. 
+Oracle defines relational databases as following. "A relational database is a type of database that stores and provides access to data points that are related to one another. Relational databases are based on the relational model, an intuitive, straightforward way of representing data in tables.In a relational database, each row in the table is a record with a unique ID called the key. The columns of the table hold attributes of the data, and each record usually has a value for each attribute, making it easy to establish the relationships among data points."
+If we take a closer look at the datasets provided, we can understand the structure of the data relatively quickly.  As, for example, tasks 3 and 6 will show later, there are links between the individual data records, regardless of whether they are .txt or .csv files.  For example, in the list of registered cars we find a unique identifier, the key to work through the car's components on a smaller level.  These in turn contain unique identifiers to look at the individual parts of the components.
+Consequently, there is a link between the data sets and it can be considered as a relational database.
+Quelle: [Oracle](https://www.oracle.com/database/what-is-a-relational-database/)
 
 
 # Question 3
@@ -230,20 +242,20 @@ knitr::kable(help_df, "pipe",caption = "Characteristics from attributes 'Zulassu
 # Question 5 
 You want to publish your application. Why does it make sense to store the records on the database of a server? Why can’t you store the records on your personal computer? What is an easy way to make your application available to your customers? Please name 4 aspects.
 
-* Servers are optimized to make resources available remotely via the internet.Thus, people from all over the world can access the data if it's on a server. A server is also usually running non-stop. The data is thus available any time.
-Nowadays usually servers are used that are managed by specialized companies.
+**Accessibility**
+* Servers have been optimized to make resources available remotely over the internet.  This allows people from all over the world or you can access the data remotely if it is on a server.  If you work in a development team, everyone involved can load the current data sets from the server at any time.
 
-* Storing your data on a server and making it available for everyone, you have the possibility to easily manage the performance by scaling up or down the server if necessary. Storing the data locally leads to a limitation of the performance to the given technical units of the computer. A lot of challenges, like security aspects, are therefore already taken care of.
+**Availability **
+* Due to the hardware used in a server, shutting down the hardware is only very rarely necessary, which means that many specialized providers offer almost 100% server runtime.  The data is therefore available at all times and is not dependent on the user who has stored the data locally.
 
-* Storing records on one's own computer might work for a small project where no one else is involved.When other people need to have access to the data, though, we face several problems:
-  * Usually our computer does not run all the time. But maybe the data should be accessible any time.
-  * We do other things with our computer. This might impact the performance if we tried to use our computer as a server.
-  * Usually our internet connection is not that great. Just as our computer, it is not optimized to serve large amount of data to remote clients.
-  * We would need to set up security measures etc., which would probably quickly become a problem.
+**Performance **
+* By storing the data on a server, you have the ability to easily manage performance by scaling the server up or down as needed.  The local storage of the data leads to a limitation of the performance to the given technical units of the computer.  Thus, when providing a globally accessible application, the performance can always be adjusted.  In addition, the specialized server providers offer security packages that significantly simplify access management.
 
-* An easy way to provide an application to customers would be to host it on a cloud service, aka a server. This way, the application would be available to any customer with an internet connection over the world wide web. By serving an application this way, we can scale the infrastructure up and down depending on how many users we have / expect. 
-Furthermore, we are taking advantage of the specialization of hosting companies, so that we can focus on developing our application. There are different providers like [Heroku](https://www.heroku.com) f.e. which allows to easily make your application, in our case R Shiny application worldwide available. 
+**Backups **
+* Another very important benefit of storing on a server is creating backups.  Of course, programming is not carried out at the same time as the application is live, but the server providers offer simple options for creating backups in order to protect the user in the event of damage and to restore the original data records.  The development teams also always have a uniform status of the current data sets. 
 
+**Addition**
+* One of these many advantages is e.g. provided by the provider [Heroku](https://www.heroku.com) or [Shinyapps.io](https://www.http://shinyapps.io/) which allows to easily make your application, in our case R Shiny application, available worldwide.
 
 # Question 6 
 On 11.08.2010 there was a hit and run accident. There is no trace of the license plate of the car involved in the accident. The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
