@@ -37,6 +37,10 @@ init <- function(){
     install.packages("actuar")
     library(actuar)
   }
+  if(!require('plotly')){
+    install.packages("plotly")
+    library(plotly)
+  }
 }
 
 init()
@@ -62,12 +66,17 @@ nrow(logistikverzug_k7)
 res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
 
 # Convert both rows to POSIXct for timediff calculation and rename columns
-logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.POSIXct(res$Produktionsdatum),Wareneingang = as.POSIXct(res$Wareneingang))
+logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.Date(res$Produktionsdatum),Wareneingang = as.Date(res$Wareneingang), PWD = as.POSIXlt(res$Produktionsdatum)$wday)
 
 #Calculate Datediff without weekends -> help function
-date_diff_excluding_wekeends <- function(x, y) {
+date_diff_excluding_wekeends <- function(x, y, z) {
   if(is.na(x) || is.na(y)) return(NA)
-  return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
+  diff <- difftime(y,x, units = "days")
+  if (z == 6) {
+    return (diff - 2)
+  } else {
+    return (diff - 1)
+  }
 }
 
 #Vectorize function
@@ -75,12 +84,22 @@ date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
 
 #Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende plus ein Tag (Issued one day after production date)
 logistics_delay <- logistics_delay %>%
-  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang)) - 1)
+  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang, logistics_delay$PWD)))
 
 delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
 # Draw histogram to see the distribution of how many components have been delivered with how much delay
-hist(delay_in_days,xlim=c(0,13), xlab="Anzahl der Tage", ylab="Summe der Komponenten", main="Histogramm des Logistikverzugs in Tagen", col="gray")
+
+fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nbinsx = 25, alpha=0.8) %>%
+  layout(yaxis = list(title = "Anzahl der Teile"),
+         xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
+         title="Plot: Verteilung der Verspaetung in Tagen") 
+
+fig
+
+# 1 d)
+
+
 
 # Specification of distribution from data: (https://www.r-project.org/conferences/useR-2009/slides/Delignette-Muller+Pouillot+Denis.pdf)
 #   1. Choose among a family of distributions the best candidates
@@ -94,12 +113,12 @@ descdist(delay_in_days, discrete = TRUE, boot = 100)
 
 # summary statistics
 # ------
-#   min:  3   max:  12 
+#   min:  2   max:  14 
 # median:  6 
-# mean:  6.057121 
-# estimated sd:  0.8257884 
-# estimated skewness:  0.5623495 
-# estimated kurtosis:  4.361576 
+# mean:  5.937319 
+# estimated sd:  1.072196 
+# estimated skewness:  0.4049263 
+# estimated kurtosis:  3.521412 
 
 ## Result: Negative Binomial and Poisson might fit best (Question: Negative Binomial even valid in theory? No binary data here.)
 
@@ -107,7 +126,7 @@ descdist(delay_in_days, discrete = TRUE, boot = 100)
 
 # https://www.youtube.com/watch?v=5klSpGC2puU
 
-dists <- c("nbinom", "pois")
+dists <- c("nbinom", "pois", "norm")
 fit <- list()
 for (i in 1:length(dists)) {
   if (dists[i] == "nbinom") {
@@ -133,9 +152,9 @@ ppcomp  (fit, legendtext = plot.legend)
 # Fitting of the distribution ' nbinom ' by maximum likelihood 
 # Parameters : 
 #   estimate  Std. Error
-# size 1.862208e+06         NaN
-# mu   3.056683e+00 0.003157812
-# Loglikelihood:  -490149.5   AIC:  980303   BIC:  980324.3 
+# size 1.424912e+07         NaN
+# mu   3.936833e+00 0.003583757
+# Loglikelihood:  -537638   AIC:  1075280   BIC:  1075301 
 # Correlation matrix:
 #   size  mu
 # size    1 NaN
@@ -145,8 +164,15 @@ ppcomp  (fit, legendtext = plot.legend)
 # Fitting of the distribution ' pois ' by matching moments 
 # Parameters : 
 #   estimate
-# lambda 3.057121
-# Loglikelihood:  -490149.3   AIC:  980300.6   BIC:  980311.3 
+# lambda 3.937319
+# Loglikelihood:  -537638   AIC:  1075278   BIC:  1075289 
+
+# Fitting of the distribution ' norm ' by matching moments 
+# Parameters : 
+#   estimate
+# mean 3.937319
+# sd   1.072194
+# Loglikelihood:  -456255   AIC:  912513.9   BIC:  912535.2 
 
 ## Step 3: Assess goodness-of- fit
 
@@ -159,41 +185,62 @@ for (i in 1:length(dists)){
   print(goodness_of_fit[[i]])
 }
 
-# Chi-squared statistic:  236063 
-# Degree of freedom of the Chi-squared distribution:  4 
-# Chi-squared p-value:  0 
-# Chi-squared table:
-#   obscounts theocounts
-# <= 1   4880.00   58490.77
-# <= 2  60778.00   67357.58
-# <= 3 170619.00   68630.21
-# <= 4  55015.00   52445.20
-# <= 5  12857.00   32061.69
-# <= 6   2069.00   16333.75
-# > 6     272.00   11170.79
-# 
-# Goodness-of-fit criteria
-# 1-mle-nbinom
-# Akaike's Information Criterion     980303.0
-# Bayesian Information Criterion     980324.3
-
-# Chi-squared statistic:  236065.1 
+# Chi-squared statistic:  140426.3 
 # Degree of freedom of the Chi-squared distribution:  5 
 # Chi-squared p-value:  0 
 # Chi-squared table:
 #   obscounts theocounts
-# <= 1   4880.00   58471.40
-# <= 2  60778.00   67347.39
-# <= 3 170619.00   68629.71
-# <= 4  55015.00   52452.33
-# <= 5  12857.00   32070.62
-# <= 6   2069.00   16340.63
-# > 6     272.00   11177.91
+# <= 1   1251.00   29520.26
+# <= 2  19057.00   46337.81
+# <= 3  87698.00   60808.06
+# <= 4 115701.00   59847.79
+# <= 5  60561.00   47122.15
+# <= 6  17757.00   30918.67
+# <= 7   3729.00   17388.81
+# > 7     736.00   14546.45
+# 
+# Goodness-of-fit criteria
+# 1-mle-nbinom
+# Akaike's Information Criterion      1075280
+# Bayesian Information Criterion      1075301
+
+# Chi-squared statistic:  140427.9 
+# Degree of freedom of the Chi-squared distribution:  6 
+# Chi-squared p-value:  0 
+# Chi-squared table:
+#   obscounts theocounts
+# <= 1   1251.00   29508.79
+# <= 2  19057.00   46326.72
+# <= 3  87698.00   60801.03
+# <= 4 115701.00   59848.27
+# <= 5  60561.00   47128.35
+# <= 6  17757.00   30926.56
+# <= 7   3729.00   17395.39
+# > 7     736.00   14554.90
 # 
 # Goodness-of-fit criteria
 # 1-mme-pois
-# Akaike's Information Criterion   980300.6
-# Bayesian Information Criterion   980311.3
+# Akaike's Information Criterion    1075278
+# Bayesian Information Criterion    1075289
+
+# Chi-squared statistic:  72752.61 
+# Degree of freedom of the Chi-squared distribution:  5 
+# Chi-squared p-value:  0 
+# Chi-squared table:
+#   obscounts  theocounts
+# <= 1   1251.0000    942.8401
+# <= 2  19057.0000   9904.1360
+# <= 3  87698.0000  47693.4700
+# <= 4 115701.0000 101848.5199
+# <= 5  60561.0000  96813.8532
+# <= 6  17757.0000  40953.6629
+# <= 7   3729.0000   7677.0286
+# > 7     736.0000    656.4892
+# 
+# Goodness-of-fit criteria
+# 1-mme-norm
+# Akaike's Information Criterion   912513.9
+# Bayesian Information Criterion   912535.2
 
 ## Result: Both distributions fit equally well, but overall they don't really fit.
 ## Therefore, same process - now with continuous distributions (should work due to n being high enough)
@@ -205,18 +252,18 @@ descdist(delay_in_days, discrete = FALSE, boot = 100)
 
 # summary statistics
 # ------
-#   min:  3   max:  12 
+#   min:  2   max:  14 
 # median:  6 
-# mean:  6.057121 
-# estimated sd:  0.8257884 
-# estimated skewness:  0.5623495 
-# estimated kurtosis:  4.361576 
+# mean:  5.937319 
+# estimated sd:  1.072196 
+# estimated skewness:  0.4049263 
+# estimated kurtosis:  3.521412 
 
 ## Result: Pretty clearly lognormal, Weibull is close so we take it as comparison.
 
 ## Step 2: Fit given distributions
 
-dists <- c("lnorm", "weibull")
+dists <- c("lnorm", "weibull", "norm")
 fit <- list()
 for (i in 1:length(dists)) {
   if(dists[i] == "weibull") {
@@ -249,16 +296,23 @@ ppcomp  (fit, legendtext = plot.legend)
 # Fitting of the distribution ' lnorm ' by matching moments 
 # Parameters : 
 #   estimate
-# meanlog 1.7920265
-# sdlog   0.1357061
-# Loglikelihood:  -371077.4   AIC:  742158.7   BIC:  742180 
+# meanlog 1.7652124
+# sdlog   0.1791387
+# Loglikelihood:  -453814.5   AIC:  907633   BIC:  907654.3 
 
 # Fitting of the distribution ' weibull ' by matching moments 
 # Parameters : 
 #   estimate
-# shape 8.756372
-# scale 6.404379
-# Loglikelihood:  -427915.9   AIC:  855835.8   BIC:  855857.1 
+# shape 6.475965
+# scale 6.373290
+# Loglikelihood:  -478722.3   AIC:  957448.7   BIC:  957469.9 
+
+# Fitting of the distribution ' norm ' by matching moments 
+# Parameters : 
+#   estimate
+# mean 5.937319
+# sd   1.072194
+# Loglikelihood:  -456255   AIC:  912513.9   BIC:  912535.2 
 
 ## Step 3: Assess goodness-of- fit
 
@@ -273,25 +327,36 @@ for (i in 1:length(dists)){
 
 # Goodness-of-fit statistics
 # 1-mme-lnorm
-# Kolmogorov-Smirnov statistic 2.849893e-01
-# Cramer-von Mises statistic   4.811740e+03
-# Anderson-Darling statistic   2.244218e+04
+# Kolmogorov-Smirnov statistic 2.065082e-01
+# Cramer-von Mises statistic   2.262175e+03
+# Anderson-Darling statistic   1.185802e+04
 # 
 # Goodness-of-fit criteria
 # 1-mme-lnorm
-# Akaike's Information Criterion    742158.7
-# Bayesian Information Criterion    742180.0
+# Akaike's Information Criterion    907633.0
+# Bayesian Information Criterion    907654.3
 
 # Goodness-of-fit statistics
 # 1-mme-weibull
-# Kolmogorov-Smirnov statistic     0.3393315
-# Cramer-von Mises statistic    5440.4870071
+# Kolmogorov-Smirnov statistic     0.2383077
+# Cramer-von Mises statistic    2534.8045909
 # Anderson-Darling statistic             Inf
 # 
 # Goodness-of-fit criteria
 # 1-mme-weibull
-# Akaike's Information Criterion      855835.8
-# Bayesian Information Criterion      855857.1
+# Akaike's Information Criterion      957448.7
+# Bayesian Information Criterion      957469.9
+
+# Goodness-of-fit statistics
+# 1-mme-norm
+# Kolmogorov-Smirnov statistic 2.065909e-01
+# Cramer-von Mises statistic   2.258418e+03
+# Anderson-Darling statistic   1.173375e+04
+# 
+# Goodness-of-fit criteria
+# 1-mme-norm
+# Akaike's Information Criterion   912513.9
+# Bayesian Information Criterion   912535.2
 
 ## Result: Log-norm distribution fits much better than Weibull, but still not really good
 
