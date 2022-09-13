@@ -42,7 +42,7 @@ Our approach divided into several step in order to select the relevant data sets
             - Bestandteile_Fahrzeuge_OEM_Typ11.csv => Problematic vehicle type
             - Bestandteile_Komponente_K1DI1.csv => Installed engine
 5. Step: Identifying the connections between the different tables + possible data size optimization based on the highlighted variable and relationships
-![Data sets Relationships](Dataset_relationships.jpeg){width:80%}
+![Data sets Relationships](Additional_files/Dataset_relationships.jpeg){width:80%}
 6. Step: Since we are only working with flat files (CSV & TXT), we load the identified data sets with the R package "readr" (included in the R package "tidyverse") to increase speed and efficiency
 
 ```{r}
@@ -83,11 +83,6 @@ junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandte
   select(-c(...1))
 
 # Relevant files for individual parts
-# Need to increase the size of the connection buffer in order to load the TXT-file properly
-
-#Sys.setenv("VROOM_CONNECTION_SIZE" = "999999999")
-
-#txt einlesen mit line break symbol
 
 txt_t1 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T01.txt"))
 txtNew_t1 <- gsub(x = txt_t1, pattern = "\\s\\|\\s\\|\\s", replacement = ",")

@@ -30,7 +30,7 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
         # First clickable tap in the nav bar at the top of the application, which represents the map
         tabPanel("Map",
                  tags$head(
-                   includeCSS("shiny.css")
+                   includeCSS("Additional_files/shiny.css")
                  ),
                  leafletOutput("map", width = "100%", height = "90vh"),
                  
