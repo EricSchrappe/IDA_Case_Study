@@ -25,6 +25,14 @@ print("Successfully loaded all packages!")
 Logistics plays a more and more important role in the product development of the automobile industry. Parts produced by the supplier must first be delivered to the OEM before they can be installed. What seems logical at first sight should be analyzed in more detailed way for a professional application. Therefore, create a distribution for the logistics delay of component „K7”. Use the production date (“Produktionsdatum”) from the data set “Komponente_K7.csv” and the receiving date of incoming goods (“Wareneingang”) from “Logistikverzug_K7.csv” (logistics delay). You can assume that produced goods are issued one day after production date. For the model design in R, create a new data set “Logistics delay” that contains the required information from both data sets.
 
 a) How is the logistics delay distributed? Justify your choice with statistical tests and briefly describe your approach.
+
+Specification of distribution from data (based on https://www.r-project.org/conferences/useR-2009/slides/Delignette-Muller+Pouillot+Denis.pdf)
+   1. Choose among a family of distributions the best candidates
+   2. Estimate the distribution parameters and their uncertainty
+   3. Assess and compate the goodness-of-fit of several distributions
+
+We start by importing the data, calculating the logistics delay and examining the data in a plot.
+
 ```{r}
 # Import data which includes production date
 komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
@@ -32,54 +40,184 @@ komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
 # Import data which includes receiving date
 logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
 
-# Merge tables by IDNummber (id number) if rows equal
-if(!nrow(komponenten_k7) == nrow(logistikverzug_k7)){
-  print("Amount of rows unequal in Komponenten K7 und Logistikverzug K7")
-  stop()
-}else{
-  big_table <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
-  print("Merged 'Komponente_K7.csv' and 'Logistikverzug_K7.csv'")
+# Merge tables by IDNummber (id number)
+res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
+
+# Convert to dates in order to be able to calculate difference in days. Plus determination of weekday to consider weekends.
+logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.Date(res$Produktionsdatum),Wareneingang = as.Date(res$Wareneingang), PWD = as.POSIXlt(res$Produktionsdatum)$wday)
+
+# Calculate date difference without weekends -> help function
+date_diff_excluding_wekeends <- function(x, y, z) {
+  if(is.na(x) || is.na(y) || is.na(z)) return(NA)
+  diff <- difftime(y,x, units = "days")
+  # Because logistics does not work during the weekend, all parts produced during the weekend are shipped on Mondays.
+  # For Saturdays, we thus need to reduce the delay by two days.
+  if (z == 6) {
+    return (diff - 2)
+  } else {
+    # For Sundays and all other days, we reduce the delay by one day.
+    return (diff - 1)
+  }
 }
 
-# Convert both rows to POSIXct for timediff calculation and rename columns
-logistics_delay <- data.frame(IDNummer=big_table$IDNummer,Produktionsdatum= as.POSIXct(big_table$Produktionsdatum),Wareneingang= as.POSIXct(big_table$Wareneingang))
-
-
-#Add one day to Produktionsdatum <- "You can assume that produced goods are issued one day after production date"
-logistics_delay$Produktionsdatum <- logistics_delay$Produktionsdatum + lubridate::days(1)
-
-
-#Calculate Datediff without weekends -> help function
-date_diff_excluding_wekeends <- function(x, y) {
-  if(is.na(x) || is.na(y)) return(NA)
-  return(sum(!format(seq(x, y-1, by = '1 day'), '%u') %in% 6:7))
-}
-
-#Vectorize function
+# Vectorize function
 date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
 
-#Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende
+# Mutate and calculate the delay
 logistics_delay <- logistics_delay %>%
-  mutate(Verzoegerung_in_Tagen=date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang))
+  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang, logistics_delay$PWD)))
 
-#Check structure
-#print(head(logistics_delay, 10))
+delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
+# Draw histogram to see the distribution of how many components have been delivered with how much delay
 
-#Plot the Table 
 fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nbinsx = 25, alpha=0.8) %>%
-    layout(yaxis = list(title = "Anzahl der Teile"),
-           xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
-           title="Plot: Verteilung der Verspaetung in Tagen") 
+  layout(yaxis = list(title = "Anzahl der Teile"),
+         xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
+         title="Plot: Verteilung der Verspaetung in Tagen") 
 
 fig
 ```
+
+The logistics delay is a vector of discrete integers. We thus start with discrete distributions.
+
+``` {r}
+## Step 1: Generate skewness-kurtosis graph to choose distributions
+
+descdist(delay_in_days, discrete = TRUE, boot = 100)
+
+
+## Result: Negative Binomial, Normal and Poisson distributions might all somewhat fit.
+## (Remark: Some of these distributions might not make sense in our use case based on their theories, but we ignore that here.)
+
+## Step 2: Fit given distributions (Always norm the data to min = 0 because distributions start with 0)
+
+# https://www.youtube.com/watch?v=5klSpGC2puU
+
+dists <- c("nbinom", "pois", "norm")
+fit <- list()
+for (i in 1:length(dists)) {
+  if (dists[i] == "nbinom") {
+    #fit by MLE
+    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i])
+  } else {
+    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i], method = "mme")
+  }
+}
+
+for (i in 1:length(dists)){
+  print(summary(fit[[i]]))
+}
+
+#Plot the results
+par(mfrow=c(2,2))
+plot.legend <- dists
+denscomp(fit, legendtext = plot.legend)
+cdfcomp (fit, legendtext = plot.legend)
+qqcomp  (fit, legendtext = plot.legend)
+ppcomp  (fit, legendtext = plot.legend)
+
+## Step 3: Assess goodness-of- fit
+
+goodness_of_fit <- list()
+for (i in 1:length(dists)) {
+  goodness_of_fit[[i]] <- gofstat(fit[[i]], discrete = TRUE)
+}
+
+for (i in 1:length(dists)){
+  print(goodness_of_fit[[i]])
+}
+
+```
+
+To make a choice about which distribution fits best, we make use of the integrated functionality of the "fitdistrplus"-package.
+The gofstat function computes goodness-of-fit statistics automatically.
+In the case of the discrete distributions, we have the Akaike information criterion (AIC) and the Bayesian information criterion (BIC) that help us with the choice.
+Both criteria are related to another and are used for model selection, which is similar to our use case.
+Very briefly speaking, a model is better if it's AIC and BIC values are lower.
+Based on this, out of the discrete distributions the normal distribution fits the  best.
+However, we are not entirely satisfied yet with the results and want to also examine continuous distributions.
+
+```{r}
+## Step 1: Generate skewness-kurtosis graph to choose distributions
+
+par(mfrow=c(1,1))
+descdist(delay_in_days, discrete = FALSE, boot = 100)
+
+## Result: Most likely the logarthmic normal distribution fits best, but we also take in Weibull and the Normal distribution for a comparison.
+
+## Step 2: Fit given distributions
+
+dists <- c("lnorm", "weibull", "norm")
+fit <- list()
+for (i in 1:length(dists)) {
+  if(dists[i] == "weibull") {
+    # Src: https://stats.stackexchange.com/questions/441516/how-to-fit-weibull-distribution-using-mme-method-and-find-the-estimates-in-r
+    # function to calculate sample raw moment
+    memp  <-  function(x, order) {
+      mean(x^order)
+    }
+    
+    #fit by MME
+    fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme", order=c(1, 2), memp=memp, 
+            start=list(shape=6, scale=6), lower=0, upper=Inf)
+  } else {
+    fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme")
+  }
+}
+
+for (i in 1:length(dists)){
+  print(summary(fit[[i]]))
+}
+
+#Plot the results
+par(mfrow=c(2,2))
+plot.legend <- dists
+denscomp(fit, legendtext = plot.legend)
+cdfcomp (fit, legendtext = plot.legend)
+qqcomp  (fit, legendtext = plot.legend)
+ppcomp  (fit, legendtext = plot.legend)
+
+## Step 3: Assess goodness-of- fit
+
+goodness_of_fit <- list()
+for (i in 1:length(dists)) {
+  goodness_of_fit[[i]] <- gofstat(fit[[i]])
+}
+
+for (i in 1:length(dists)){
+  print(goodness_of_fit[[i]])
+}
+
+```
+
+In the case of the continuous distributions, we have some more criteria to evaluate the goodness-of-fit.
+However, in the first step we only consider the AIC and BIC to have a better comparison with the discrete distributions.
+Out of the continuous distributions, the Logarithmic Normal distribution has the lowest AIC and BIC scores. 
+It is also lower than in the case of the discrete Normal distribution. Hence, so far, this distribution fits the best.
+To be sure, we further compare the continuous distributions amongst each other based on the
+- Kolmogorov-Smirnov statistic 
+- Cramer-von Mises statistic   
+and - Anderson-Darling statistic,
+which are all established goodness-of-fit criteria for continuous distributions. Here, we are also looking to minimize the values.
+Again, the Logarithmic Normal distribution fits the best.
+
+Thus, overall, we consider the Logarithmic Normal distribution to be the best choice to describe the empirical distribution of our data.
+
+
 b) Determine the mean of the logistics delay (watch out for weekends). Please interpret this number and discuss possible alternatives.
+
 ```{r}
 sprintf("Die durschnittliche logistische Verzoegerung beträgt %s Tage", format(round(mean(logistics_delay$Verzoegerung_in_Tagen), 2), nsmall = 2))
 ```
 **Interpretation: **
-TODO
+
+The mean of a series of numbers, in this case specifically the arithmetic mean, is its average. This means for the logistics delay, that on average, the delivery of a good is delayed by this many days.
+Now, the mean could be used as an estimation for future delays. However, this metric has some limitations.
+For example, if the empirical numbers are very far apart and not many numbers are close to the mean, it is a bad predictor because the value of the mean is rarely going to occur in reality. Furthermore, even if most of the data is concentrated in a specific range, very far outliers can influence the mean in a way that is not a good representation of which values occur must of the time in reality.
+Due to these limitations, especially the last one, there are other metrics that should be taken into consideration additionally. One of them is the median. The median determines the value in a dataset, which has the characteristic that half of all the values in the dataset are below it, and the other half are above. Outliers have a very limited influence on the median. In this sense, it reduces particularly this weakness of the arithmetic mean.
+Besides that, there are other ways to calculate averages. Some of the more promiment ones are the geometric and harmonic means.
+They all have certain advantages for specific use cases.
 
 c) Visualize the distribution in an appropriate way by displaying the histogram and the density function using “plotly”. Please describe how you selected the size of the bins.
 ```{r}

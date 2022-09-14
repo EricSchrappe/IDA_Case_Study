@@ -61,33 +61,34 @@ init()
 
 # Import data which includes production date
 komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
-nrow(komponenten_k7)
 
 # Import data which includes receiving date
 logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
-nrow(logistikverzug_k7)
 
 # Merge tables by IDNummber (id number)
 res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
 
-# Convert both rows to POSIXct for timediff calculation and rename columns
+# Convert to dates in order to be able to calculate difference in days. Plus determination of weekday to consider weekends.
 logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.Date(res$Produktionsdatum),Wareneingang = as.Date(res$Wareneingang), PWD = as.POSIXlt(res$Produktionsdatum)$wday)
 
-#Calculate Datediff without weekends -> help function
+# Calculate date difference without weekends -> help function
 date_diff_excluding_wekeends <- function(x, y, z) {
-  if(is.na(x) || is.na(y)) return(NA)
+  if(is.na(x) || is.na(y) || is.na(z)) return(NA)
   diff <- difftime(y,x, units = "days")
+  # Because logistics does not work during the weekend, all parts produced during the weekend are shipped on Mondays.
+  # For Saturdays, we thus need to reduce the delay by two days.
   if (z == 6) {
     return (diff - 2)
   } else {
+    # For Sundays and all other days, we reduce the delay by one day.
     return (diff - 1)
   }
 }
 
-#Vectorize function
+# Vectorize function
 date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
 
-#Mutate and calculate the Verzoegerung_in_Tagen ohne Wochenende plus ein Tag (Issued one day after production date)
+# Mutate and calculate the delay
 logistics_delay <- logistics_delay %>%
   mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang, logistics_delay$PWD)))
 
@@ -101,10 +102,6 @@ fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nb
          title="Plot: Verteilung der Verspaetung in Tagen") 
 
 fig
-
-# 1 d)
-
-
 
 # Specification of distribution from data: (https://www.r-project.org/conferences/useR-2009/slides/Delignette-Muller+Pouillot+Denis.pdf)
 #   1. Choose among a family of distributions the best candidates
@@ -364,6 +361,14 @@ for (i in 1:length(dists)){
 # Bayesian Information Criterion   912535.2
 
 ## Result: Log-norm distribution fits much better than Weibull, but still not really good
+
+# 1d
+
+txt_k7 <- readLines(here("Data", "Komponente", "Komponente_K7.txt"))
+txt_k7[1] <- paste0('"ID"\t', txt_k7)
+df_k7 <- read_delim(I(txt_k7), delim = "\t", trim_ws = TRUE)
+
+df_b_k7 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K7.csv"))
 
 ################################################################################################################################
 # Aufgabe 2
