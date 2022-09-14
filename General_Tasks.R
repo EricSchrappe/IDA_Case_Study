@@ -37,11 +37,16 @@ init <- function(){
     install.packages("actuar")
     library(actuar)
   }
+  if(!require('purrr')){
+    install.packages("purrr")
+    library(purrr)
+  }
   if(!require('plotly')){
     install.packages("plotly")
     library(plotly)
   }
 }
+
 
 init()
 
@@ -51,7 +56,7 @@ init()
 ################################################################################################################################
 ################################################################################################################################
 # Aufgabe 1
-# Create distribution for the logistics delay of component „K7”
+#a)  How is the logistics delay distributed? Justify your choice with statistical tests and briefly describe your approach.
 #################################################################################################################################
 
 # Import data which includes production date
@@ -451,7 +456,6 @@ Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
 Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
 #  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
 
-
 ################################################################################################################################
 # Aufgabe 4
 # Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have?
@@ -459,10 +463,27 @@ Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
 #################################################################################################################################
 
 # Pfad setzen -> CSV einlesen alle Zulassungen
-setwd("~/Rproject_IDA/Data/Zulassungen")
-alle_zulassungen <- read.csv2("Zulassungen_alle_Fahrzeuge.csv")
-print("Struktur der Table Zulassungen_alle_Fahrzeuge.csv ")
-str(alle_zulassungen)
+alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+
+s <- alle_zulassungen %>%
+  filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
+nrow(s)
+
+#typeof(alle_zulassungen$IDNummer)
+descrip_int = "The Integer data type is used for integer values.To store a value as an integer, we need to specify it as such. The integer data type is commonly used for discrete only values like unique ids.We can store as well as convert a value into an integer type using the as.integer() function.If the data consists of only numbers, like decimals, whole numbers, then we call it numeric data. In numeric data, the numbers can be positive or negative. If the data consists only of whole numbers, it is called as integer. Integers too may take negative or positive values. In the present example, the integer number 408097 serves as an example of an integer. -408097,52 would be an nummeric datatype for example."
+
+
+descrip_char = "The character data type stores character values or strings. 
+              Strings in R can contain the alphabet, numbers, and symbols. 
+              The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas."
+help_df <- data.frame(Row_Name = colnames(alle_zulassungen),
+                      Data_Types=c(typeof(alle_zulassungen$X),typeof(alle_zulassungen$IDNummer),typeof(alle_zulassungen$Gemeinden),typeof(alle_zulassungen$Gemeinden) ),
+                      Examples=c(alle_zulassungen$X[1], alle_zulassungen$IDNummer[1], alle_zulassungen$Gemeinden[1], alle_zulassungen$Zulassung[1]),
+                      Characteristics=c(descrip_int,NA))
+
+
+#help_df <- table(help_df)
+help_df
 
 
 ################################################################################################################################
@@ -481,6 +502,9 @@ str(alle_zulassungen)
 # A server is also usually running non-stop. The data is thus available any time.
 # Nowadays usually servers are used that are managed by specialized companies.
 # A lot of challenges, like security aspects, are therefore already taken care of.
+# Furthermore storing your data on a server and making it available for everyone, 
+# you have possibility to easily manage the performance by scaling up or down the server if necessary. 
+# Storing the data locally leads to a limitation of the performance to the given technical units of the computer.
 
 ## 2
 
@@ -497,12 +521,14 @@ str(alle_zulassungen)
 # This way, the application would be available to any customer with an internet connection over the world wide web.
 # By serving an application this way, we can scale the infrastructure up and down depending on how many users we have / expect.
 # Furthermore, we are taking advantage of the specialization of hosting companies, so that we can focus on developing our application.
+# There are different providers like Heroku which allows to easily make your Application f.e. R Shiny App worldwide available. 
 
 ################################################################################################################################
 # Aufgabe 6
 # On 11.08.2010 there was a hit and run accident. 
 # There is no trace of the license plate of the car involved in the accident. 
-# The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
+# The police asks for your help, as you work for the Federal Motor Transport Authority, 
+# and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
 #################################################################################################################################
 
 # Startdatenpunkt
@@ -519,6 +545,5 @@ result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
   filter(ID_Karosserie == gesuchte_karosserie) %>%
   inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
 
-sprintf("Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",result_row["IDNummer"], gesuchte_karosserie, result_row["Zulassung"], result_row["Gemeinden"] )
-
+sprintf("Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",result_row["IDNummer"], gesuchte_karosserie, result_row["Zulassung"], result_row["Gemeinden"])
 
