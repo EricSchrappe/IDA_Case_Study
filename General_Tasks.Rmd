@@ -11,12 +11,26 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Include Packages
 ```{r, , message = FALSE, echo = FALSE}
-if (!require(install.load)){
+if (!require(install.load)) {
   install.packages("install.load")
 }
 library(install.load)
-install_load("tidyverse", "dplyr", "tidyr", "stringr", "readr", "knitr", "here", "ggplot2", "fitdistrplus", "purrr", "plotly", "lubridate")
-print("Successfully loaded all packages!")
+install_load(
+  "tidyverse",
+  "dplyr",
+  "tidyr",
+  "stringr",
+  "readr",
+  "knitr",
+  "here",
+  "ggplot2",
+  "fitdistrplus",
+  "purrr",
+  "plotly",
+  "actuar"
+)
+print("Successfully loaded all packages!"
+)
 ```
 
 
@@ -33,23 +47,32 @@ Specification of distribution from data (based on https://www.r-project.org/conf
 
 We start by importing the data, calculating the logistics delay and examining the data in a plot.
 
-```{r}
+```{r, warning=FALSE,message=FALSE}
 # Import data which includes production date
-komponenten_k7 <- read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
+komponenten_k7 <-
+  read.csv2(here("Data", "Logistikverzug", "Komponente_K7.csv"))
 
 # Import data which includes receiving date
-logistikverzug_k7 <- read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
+logistikverzug_k7 <-
+  read.csv(here("Data", "Logistikverzug", "Logistikverzug_K7.csv"))
 
 # Merge tables by IDNummber (id number)
 res <- merge(komponenten_k7, logistikverzug_k7, by = "IDNummer")
 
 # Convert to dates in order to be able to calculate difference in days. Plus determination of weekday to consider weekends.
-logistics_delay <- data.frame(IDNummer = res$IDNummer,Produktionsdatum = as.Date(res$Produktionsdatum),Wareneingang = as.Date(res$Wareneingang), PWD = as.POSIXlt(res$Produktionsdatum)$wday)
+logistics_delay <-
+  data.frame(
+    IDNummer = res$IDNummer,
+    Produktionsdatum = as.Date(res$Produktionsdatum),
+    Wareneingang = as.Date(res$Wareneingang),
+    PWD = as.POSIXlt(res$Produktionsdatum)$wday
+  )
 
 # Calculate date difference without weekends -> help function
 date_diff_excluding_wekeends <- function(x, y, z) {
-  if(is.na(x) || is.na(y) || is.na(z)) return(NA)
-  diff <- difftime(y,x, units = "days")
+  if (is.na(x) || is.na(y) || is.na(z))
+    return(NA)
+  diff <- difftime(y, x, units = "days")
   # Because logistics does not work during the weekend, all parts produced during the weekend are shipped on Mondays.
   # For Saturdays, we thus need to reduce the delay by two days.
   if (z == 6) {
@@ -61,27 +84,42 @@ date_diff_excluding_wekeends <- function(x, y, z) {
 }
 
 # Vectorize function
-date_diff_excluding_wekeends_V <- Vectorize(date_diff_excluding_wekeends)
+date_diff_excluding_wekeends_V <-
+  Vectorize(date_diff_excluding_wekeends)
 
 # Mutate and calculate the delay
 logistics_delay <- logistics_delay %>%
-  mutate(Verzoegerung_in_Tagen = as.integer(date_diff_excluding_wekeends_V(logistics_delay$Produktionsdatum, logistics_delay$Wareneingang, logistics_delay$PWD)))
+  mutate(Verzoegerung_in_Tagen = as.integer(
+    date_diff_excluding_wekeends_V(
+      logistics_delay$Produktionsdatum,
+      logistics_delay$Wareneingang,
+      logistics_delay$PWD
+    )
+  ))
 
 delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
 # Draw histogram to see the distribution of how many components have been delivered with how much delay
 
-fig <- plot_ly(x = logistics_delay$Verzoegerung_in_Tagen, type = "histogram", nbinsx = 25, alpha=0.8) %>%
-  layout(yaxis = list(title = "Anzahl der Teile"),
-         xaxis = list(title = "Verspaetung in Tagen", tickmode='linear'),
-         title="Plot: Verteilung der Verspaetung in Tagen") 
+fig <-
+  plot_ly(
+    x = logistics_delay$Verzoegerung_in_Tagen,
+    type = "histogram",
+    nbinsx = 25,
+    alpha = 0.8
+  ) %>%
+  layout(
+    yaxis = list(title = "Anzahl der Teile"),
+    xaxis = list(title = "Verspaetung in Tagen", tickmode = 'linear'),
+    title = "Plot: Verteilung der Verspaetung in Tagen"
+  )
 
 fig
 ```
 
 The logistics delay is a vector of discrete integers. We thus start with discrete distributions.
 
-``` {r}
+```{r, warning=FALSE,message=FALSE}
 ## Step 1: Generate skewness-kurtosis graph to choose distributions
 
 descdist(delay_in_days, discrete = TRUE, boot = 100)
@@ -99,18 +137,20 @@ fit <- list()
 for (i in 1:length(dists)) {
   if (dists[i] == "nbinom") {
     #fit by MLE
-    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i])
+    fit[[i]] <-
+      fitdist(delay_in_days - min(delay_in_days), dists[i])
   } else {
-    fit[[i]] <- fitdist(delay_in_days - min(delay_in_days), dists[i], method = "mme")
+    fit[[i]] <-
+      fitdist(delay_in_days - min(delay_in_days), dists[i], method = "mme")
   }
 }
 
-for (i in 1:length(dists)){
+for (i in 1:length(dists)) {
   print(summary(fit[[i]]))
 }
 
 #Plot the results
-par(mfrow=c(2,2))
+par(mfrow = c(2, 2))
 plot.legend <- dists
 denscomp(fit, legendtext = plot.legend)
 cdfcomp (fit, legendtext = plot.legend)
@@ -124,7 +164,7 @@ for (i in 1:length(dists)) {
   goodness_of_fit[[i]] <- gofstat(fit[[i]], discrete = TRUE)
 }
 
-for (i in 1:length(dists)){
+for (i in 1:length(dists)) {
   print(goodness_of_fit[[i]])
 }
 
@@ -138,10 +178,10 @@ Very briefly speaking, a model is better if it's AIC and BIC values are lower.
 Based on this, out of the discrete distributions the normal distribution fits the  best.
 However, we are not entirely satisfied yet with the results and want to also examine continuous distributions.
 
-```{r}
+```{r, warning=FALSE,message=FALSE}
 ## Step 1: Generate skewness-kurtosis graph to choose distributions
 
-par(mfrow=c(1,1))
+par(mfrow = c(1, 1))
 descdist(delay_in_days, discrete = FALSE, boot = 100)
 
 ## Result: Most likely the logarthmic normal distribution fits best, but we also take in Weibull and the Normal distribution for a comparison.
@@ -151,27 +191,36 @@ descdist(delay_in_days, discrete = FALSE, boot = 100)
 dists <- c("lnorm", "weibull", "norm")
 fit <- list()
 for (i in 1:length(dists)) {
-  if(dists[i] == "weibull") {
+  if (dists[i] == "weibull") {
     # Src: https://stats.stackexchange.com/questions/441516/how-to-fit-weibull-distribution-using-mme-method-and-find-the-estimates-in-r
     # function to calculate sample raw moment
     memp  <-  function(x, order) {
-      mean(x^order)
+      mean(x ^ order)
     }
     
     #fit by MME
-    fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme", order=c(1, 2), memp=memp, 
-            start=list(shape=6, scale=6), lower=0, upper=Inf)
+    fit[[i]] <-
+      fitdist(
+        delay_in_days,
+        dists[i],
+        method = "mme",
+        order = c(1, 2),
+        memp = memp,
+        start = list(shape = 6, scale = 6),
+        lower = 0,
+        upper = Inf
+      )
   } else {
     fit[[i]] <- fitdist(delay_in_days, dists[i], method = "mme")
   }
 }
 
-for (i in 1:length(dists)){
+for (i in 1:length(dists)) {
   print(summary(fit[[i]]))
 }
 
 #Plot the results
-par(mfrow=c(2,2))
+par(mfrow = c(2, 2))
 plot.legend <- dists
 denscomp(fit, legendtext = plot.legend)
 cdfcomp (fit, legendtext = plot.legend)
@@ -185,7 +234,7 @@ for (i in 1:length(dists)) {
   goodness_of_fit[[i]] <- gofstat(fit[[i]])
 }
 
-for (i in 1:length(dists)){
+for (i in 1:length(dists)) {
   print(goodness_of_fit[[i]])
 }
 
@@ -208,7 +257,10 @@ Thus, overall, we consider the Logarithmic Normal distribution to be the best ch
 b) Determine the mean of the logistics delay (watch out for weekends). Please interpret this number and discuss possible alternatives.
 
 ```{r}
-sprintf("Die durschnittliche logistische Verzoegerung beträgt %s Tage", format(round(mean(logistics_delay$Verzoegerung_in_Tagen), 2), nsmall = 2))
+sprintf("On average, the logistics delay is %s days.",
+        format(round(
+          mean(logistics_delay$Verzoegerung_in_Tagen), 2
+        ), nsmall = 2))
 ```
 **Interpretation: **
 
@@ -220,10 +272,31 @@ Besides that, there are other ways to calculate averages. Some of the more promi
 They all have certain advantages for specific use cases.
 
 c) Visualize the distribution in an appropriate way by displaying the histogram and the density function using “plotly”. Please describe how you selected the size of the bins.
-```{r}
-print("TODO")
+```{r, warning=FALSE,message=FALSE}
+delay_density <- density(delay_in_days, bw = 0.5)
+
+plot_ly(x = delay_in_days, type = "histogram", name = "Histogram") %>%
+  add_trace(
+    x = delay_density$x,
+    y = delay_density$y,
+    type = "scatter",
+    mode = "lines",
+    fill = "tozeroy",
+    yaxis = "y2",
+    name = "Density"
+  ) %>%
+  layout(yaxis2 = list(overlaying = "y", side = "right"))
+
 ```
+
+Since the values in the data are discrete, and there are not many different values in the dataset, we can set the number of bins in a way that each bin has a singular corresponding value.
+
 d) Please describe how you proceed, if you have to create a decision tree, which is describing the classification problem to classify whether the component (K7) is defective (Fehlerhaft) or not? (Hint: You might want to work with visualizations.)
+
+Decision Tree based on single part failure
+Generally speaking, a way to safely determine that a component is faulty is to look at the single parts it is made of. If at least one of these single parts is faulty, it follows that the component as a whole is faulty. This logic can be shown in form of a decision tree.
+The component in this case, component K7, is made up of the single parts T34, T35, T38, T39, and T40. The following decision tree results.
+![Decision Tree](images/decision_tree.jpg){width:80%}
 
 
 Decision Tree with Machine Learning
@@ -287,39 +360,67 @@ Quelle: [Oracle](https://www.oracle.com/database/what-is-a-relational-database/)
 
 # Question 3
 How many of the parts T16 ended up in vehicles registered in Adelshofen?
-````{r}
+````{r, warning=FALSE,message=FALSE}
 # Pull IDs for relevant parts
-txt_t16 <- readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
+txt_t16 <-
+  readLines(here("Data", "Einzelteil", "Einzelteil_T16.txt"))
 txt_t16 <- paste('"ID" | |', txt_t16)
-txt_t16 <- gsub(x = txt_t16, pattern = "\\s\\|\\s\\|\\s", replacement = ",")
-txt_t16 <- gsub(x = txt_t16, pattern = "\\s", replacement = "\n")
+txt_t16 <-
+  gsub(x = txt_t16,
+       pattern = "\\s\\|\\s\\|\\s",
+       replacement = ",")
+txt_t16 <- gsub(x = txt_t16,
+                pattern = "\\s",
+                replacement = "\n")
 txt_t16 <- substring(txt_t16, 1, nchar(txt_t16) - 1)
 df_t16 <- read_delim(I(txt_t16), delim = ",", trim_ws = TRUE)
-df_t16 <- dplyr::select(df_t16, -1)
+df_t16 <- dplyr::select(df_t16,-1)
 rm(txt_t16)
 ids_t16 <- df_t16$ID_T16.x
 rm(df_t16)
 
 # Pull data about relevant cars
-alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
+alle_zulassungen <-
+  read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
 adelshofen_zulassungen <- alle_zulassungen %>%
   filter(alle_zulassungen$Gemeinden == "ADELSHOFEN")
 
 # Pull data about which cars contain which components
-Bestandteile_Fahrzeuge_OEM1_Typ11 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv")) %>% dplyr::select(-1)
-Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv")) %>% dplyr::select(-1)
-Bestandteile_Fahrzeuge_OEM2_Typ21 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ21.csv")) %>% dplyr::select(-1)
-Bestandteile_Fahrzeuge_OEM2_Typ22 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ22.csv")) %>% dplyr::select(-1)
-Bestandteil_Fahrzeuge <- rbind(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
-rm(Bestandteile_Fahrzeuge_OEM1_Typ11, Bestandteile_Fahrzeuge_OEM1_Typ12, Bestandteile_Fahrzeuge_OEM2_Typ21, Bestandteile_Fahrzeuge_OEM2_Typ22)
+Bestandteile_Fahrzeuge_OEM1_Typ11 <-
+  read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM1_Typ12 <-
+  read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ21 <-
+  read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ21.csv")) %>% dplyr::select(-1)
+Bestandteile_Fahrzeuge_OEM2_Typ22 <-
+  read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM2_Typ22.csv")) %>% dplyr::select(-1)
+Bestandteil_Fahrzeuge <-
+  rbind(
+    Bestandteile_Fahrzeuge_OEM1_Typ11,
+    Bestandteile_Fahrzeuge_OEM1_Typ12,
+    Bestandteile_Fahrzeuge_OEM2_Typ21,
+    Bestandteile_Fahrzeuge_OEM2_Typ22
+  )
+rm(
+  Bestandteile_Fahrzeuge_OEM1_Typ11,
+  Bestandteile_Fahrzeuge_OEM1_Typ12,
+  Bestandteile_Fahrzeuge_OEM2_Typ21,
+  Bestandteile_Fahrzeuge_OEM2_Typ22
+)
 
 # First filter components that containt part T16 by looking at datasets
 # Then importing relevant datasets
-Bestandteile_Komponente_K2LE2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2LE2.csv"))
-Bestandteile_Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
-Bestandteile_Komponente_K2LE2 <- Bestandteile_Komponente_K2LE2 %>% dplyr::select(c("ID_T16", "ID_K2LE2")) %>% rename(ID_Komponente = ID_K2LE2)
-Bestandteile_Komponente_K2ST2 <- Bestandteile_Komponente_K2ST2 %>% dplyr::select(c("ID_T16", "ID_K2ST2")) %>% rename(ID_Komponente = ID_K2ST2)
-Bestandteile_Komponenten <- rbind(Bestandteile_Komponente_K2LE2, Bestandteile_Komponente_K2ST2)
+Bestandteile_Komponente_K2LE2 <-
+  read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2LE2.csv"))
+Bestandteile_Komponente_K2ST2 <-
+  read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
+Bestandteile_Komponente_K2LE2 <-
+  Bestandteile_Komponente_K2LE2 %>% dplyr::select(c("ID_T16", "ID_K2LE2")) %>% rename(ID_Komponente = ID_K2LE2)
+Bestandteile_Komponente_K2ST2 <-
+  Bestandteile_Komponente_K2ST2 %>% dplyr::select(c("ID_T16", "ID_K2ST2")) %>% rename(ID_Komponente = ID_K2ST2)
+Bestandteile_Komponenten <-
+  rbind(Bestandteile_Komponente_K2LE2,
+        Bestandteile_Komponente_K2ST2)
 
 # (Seem to have same data)
 #Komponente_K2LE2 <- readLines(here("Data", "Komponente", "KOmponente_K2LE2.txt"))
@@ -337,14 +438,17 @@ Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
 
 Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
 
-sprintf("Es wurden %s Autos in Adelshofen zugelassen, die Komponenten T16 enthalten", length(Unique_Autos_mit_T16))
+sprintf(
+  "Es wurden %s Autos in Adelshofen zugelassen, die Komponenten T16 enthalten",
+  length(Unique_Autos_mit_T16)
+)
 #  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
 ```
 
 
 # Question 4 
 Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have? Put your answers into a table which is integrated into your Markdown document and describe the characteristics of the data type(s).
-```{r echo=FALSE, results='asis'}
+```{r echo=FALSE, results='asis', warning = FALSE}
 # Pfad setzen -> CSV einlesen alle Zulassungen
 #alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
 
@@ -367,13 +471,35 @@ descrip_Gemeinde = "The character data type stores character values or strings. 
 descrip_Zulassung = "The character data type stores character values or strings.Strings in R can contain the alphabet, numbers, and symbols. The easiest way to denote that a value is of character type in R is to wrap the value inside single or double inverted commas. 'Zulassung' contains dates as characters. For calculating/working reasons the could be converted as.Dates() or as.POSIXct(), as seen in different tasks in this course."
 
 
-help_df <- data.frame(Row_Name = colnames(alle_zulassungen),
-                      Data_Types=c(typeof(alle_zulassungen$X),typeof(alle_zulassungen$IDNummer),typeof(alle_zulassungen$Gemeinden),typeof(alle_zulassungen$Gemeinden) ),
-                      Examples=c(alle_zulassungen$X[1], alle_zulassungen$IDNummer[1], alle_zulassungen$Gemeinden[1], alle_zulassungen$Zulassung[1]),
-                      Characteristics=c(descrip_X,descrip_IDNummer, descrip_Gemeinde, descrip_Zulassung))
+help_df <- data.frame(
+  Row_Name = colnames(alle_zulassungen),
+  Data_Types = c(
+    typeof(alle_zulassungen$X),
+    typeof(alle_zulassungen$IDNummer),
+    typeof(alle_zulassungen$Gemeinden),
+    typeof(alle_zulassungen$Gemeinden)
+  ),
+  Examples = c(
+    alle_zulassungen$X[1],
+    alle_zulassungen$IDNummer[1],
+    alle_zulassungen$Gemeinden[1],
+    alle_zulassungen$Zulassung[1]
+  ),
+  Characteristics = c(
+    descrip_X,
+    descrip_IDNummer,
+    descrip_Gemeinde,
+    descrip_Zulassung
+  )
+)
 
-knitr::kable(help_df, "pipe",caption = "Characteristics from attributes 'Zulassung aller Fahrzeuge'",align=c("l","l","l","l"),
-             col.names=c("Row name", "Data type", "Example", "Characteristics"))
+knitr::kable(
+  help_df,
+  "pipe",
+  caption = "Characteristics from attributes 'Zulassung aller Fahrzeuge'",
+  align = c("l", "l", "l", "l"),
+  col.names = c("Row name", "Data type", "Example", "Characteristics")
+)
 #help_df <- table(help_df)
 #help_df
 ```
@@ -399,7 +525,7 @@ One of these many advantages is e.g. provided by the provider [Heroku](https://w
 # Question 6 
 On 11.08.2010 there was a hit and run accident. There is no trace of the license plate of the car involved in the accident. The police asks for your help, as you work for the Federal Motor Transport Authority, and asks where the vehicle with the body part number “K5-112-1122-79” was registered.
 
-````{r, message = FALSE, echo = FALSE}
+````{r, message = FALSE, echo = FALSE, warning = FALSE}
 # Startdatenpunkt
 gesuchte_karosserie <- 'K5-112-1122-79'
 
@@ -407,7 +533,8 @@ gesuchte_karosserie <- 'K5-112-1122-79'
 #alle_zulassungen <- read.csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"))
 
 # CSV einlesen Bestandteile Fahrzeuge OEM1
-Bestandteile_Fahrzeuge_OEM1_Typ12 <- read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
+Bestandteile_Fahrzeuge_OEM1_Typ12 <-
+  read.csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ12.csv"))
 
 
 # Filtern nach gesuchter Karosserie und weitere Suche in Zulassungen
@@ -415,5 +542,11 @@ result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
   filter(ID_Karosserie == gesuchte_karosserie) %>%
   inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
 
-sprintf("Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",result_row["IDNummer"], gesuchte_karosserie, result_row["Zulassung"], result_row["Gemeinden"] )
+sprintf(
+  "Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",
+  result_row["IDNummer"],
+  gesuchte_karosserie,
+  result_row["Zulassung"],
+  result_row["Gemeinden"]
+)
 ```
