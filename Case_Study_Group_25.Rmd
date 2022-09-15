@@ -1,6 +1,13 @@
 ---
 title: "Case_Study_Group_25"
-output: html_document
+subtitle: "Analysis of defective registered diesel-engine vehicles"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: united
+    highlight: tango
 date: "2022-07-25"
 ---
 
@@ -8,8 +15,8 @@ date: "2022-07-25"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Include Packages
-```{r, message = FALSE, echo = FALSE}
+## Include Packages
+```{r, message = FALSE, echo = TRUE}
 if (!require(install.load)){
   install.packages("install.load")
 }
@@ -17,8 +24,7 @@ library(install.load)
 install_load("tidyverse", "geosphere", "here")
 print("Successfully loaded all packages!")
 ```
-
-# Load the required datasets for the analysis
+## Importing the data
 
 Our approach divided into several step in order to select the relevant data sets to answer our analysis question:
 1. Step: We read our problem statement to obtain a deeper understanding of the task at hand
@@ -43,10 +49,10 @@ Our approach divided into several step in order to select the relevant data sets
             - Bestandteile_Fahrzeuge_OEM_Typ11.csv => Problematic vehicle type
             - Bestandteile_Komponente_K1DI1.csv => Installed engine
 5. Step: Identifying the connections between the different tables + possible data size optimization based on the highlighted variable and relationships
-![Data sets Relationships](Additional_files/Dataset_relationships.jpeg){width:80%}
+![Data sets Relationships](Additional_files/Dataset_relationships.jpeg)
 6. Step: Since we are only working with flat files (CSV & TXT), we load the identified data sets with the R package "readr" (included in the R package "tidyverse") to increase speed and efficiency
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 
 # Relevant CSV file for the identified vehicle type
 rval_vehicle_data <- read_csv(here("Data", "Fahrzeug", "Fahrzeuge_OEM1_Typ11.csv"), col_names= TRUE, trim_ws= TRUE) %>% 
@@ -158,16 +164,16 @@ rm(rval_vehicle_data,
 
 ```
 
-# Perform Data Exploration on loaded data sets
+## Data Preparation
 
-a. Investigating missing values
+### Investigating missing values
 
 1. Step: Check whether any column of the data sets includes missing values
 2. Step: Investigate the columns with missing value if applicable
 3. Step: Adjust the data sets if necessary
 
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 # Function to check each column of the given data set for missing values
 na_test <- function(x){
   
@@ -204,16 +210,14 @@ var_list[["geo_data"]] <- var_list[["geo_data"]] %>% drop_na()
 
 ```
 
-# Perform Data Exploration on loaded data sets
-
-b. Investigating data types and potentially converting them
+### Investigating data types and potentially converting them
 
 1. Step: Create a function that returns the data type for each column of the given dataframe
 2. Step: Apply the previouly developed function to all relevatn dataframes
 3. Step: Evaluate whether the data type of a column needs to be transformed
 
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 
 # 1. Step
 data_types <- function(x){
@@ -248,15 +252,13 @@ var_list[["geo_data"]]$Breitengrad <- as.numeric(format(var_list[["geo_data"]]$B
 
 
 ```
-# Perform Data Exploration on loaded data sets
-
-c. Remove potential duplicate data observations
+### Remove potential duplicate data observations
 
 1. Step: Create a function that determines whether duplicate exists in the datasets
 2. Step: Apply the function to all relevant datasets
 3. Step: Remove potential duplicates
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 
 # 1. Step
 duplicate_test <- function(dataframe){
@@ -295,14 +297,12 @@ var_list[["geo_data"]] <- var_list[["geo_data"]] %>% distinct(Gemeinde, .keep_al
 
 ```
 
-# Perform Data Exploration on loaded data sets
-
-d. Trim the data
+### Trim the data
 
 1. Step: Since some of the community names had numbers at the end of their name, they needed to be removed. This applies for the data sets "car registrations" as well as "geo data"
 
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 # 1. Step
 var_list[["car_registrations"]][["Gemeinden"]] <- gsub('[0-9]+', '', var_list[["car_registrations"]][["Gemeinden"]])
 
@@ -316,14 +316,12 @@ var_list[["geo_data"]][["Gemeinde"]] <- gsub('[0-9]+', '', var_list[["geo_data"]
 ```
 
 
-# Perform Data Exploration on loaded data sets
-
-e. Graphs for the important features
+### Graphs for the important features
 
 1. Step: Create a function, which first checks whether the relevant information is included in the dataset, here the column "Fehlerhaft". Afterwards make sure to exclude all datasets where the unique number of observations = 1.
 2. Step: Apply the created function the list of variables
 
-```{r}
+```{r, message = FALSE, echo = TRUE}
 # 1. Step
 plot_defective <- function(dataframe){
   if("Fehlerhaft" %in% colnames(dataframe)){
@@ -348,7 +346,7 @@ lapply(var_list, plot_defective)
 
 ```
 
-# Creating a single dataset
+## Creating the final dataset
 
 1. Step: Join the junction table the respective data tables to obtain the ID relevant to join with other data tables
 2. Step: Connect the smallest unit to the next higher unit, Parts => Components
@@ -357,7 +355,7 @@ lapply(var_list, plot_defective)
 5. Step: Bring everything together in one dataframe and calculate the distance between the communities and the center of Berlin (Long/Lat obtained from this website: https://www.umingo.de/deutschland/berlin/)
 
 
-```{r, message = FALSE, echo = FALSE}
+```{r, message = FALSE, echo = TRUE}
 
 # 1. Step
 joined_vehicles <- var_list[["vehicle"]] %>% 
@@ -408,39 +406,39 @@ write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 ```
 
 
-# Evaluation & Results
+## Evaluation & Results
 
 The result of the case-study can be seen in our shiny application.
 We chose just a lean layout including the given specifications because we want to set the main focus to the other tasks.
 To navigate through our tabs we used the navbarpage to get a top level navigation bar.
 
-## Map
+### Map
 The first tab is the map, showing variably definable concentric circles around Berlin.
 By clicking the marker a popup appears displaying the number of registered vehicles in the "Gemeinde" and a plot showing the vehicles with diesel engines affected by the driving ban in relation to those not affected.
 It is our fist tab because you get a really good overview by getting insights with the popups at the same time. This helps the user to understand the magnitude of the problem and to classify its importance.
 
-![Shiny App - Map](Additional_files/shiny_app_map.jpg){width:100%}
+![Shiny App - Map](Additional_files/shiny_app_map.jpg)
 
 
-## Barplot
+### Barplot
 The second tab is the interactive barplot. For each radius, the number of affected diesel-engined vehicles registered within that radius in relation to the unaffected vehicles is shown in the graphic. The number and the size of the radius can be chosen interactively.
 Here, the user gets an aggregated view to asses the full extent.
 
-![Shiny App - Bar Chart](Additional_files/shiny_app_bar_chart.jpg){width:100%}
+![Shiny App - Bar Chart](Additional_files/shiny_app_bar_chart.jpg)
 
-## Table
+### Table
 In this tab we display the underlying data as table. We decided to show these attributes in the table because the user 
 is able to get the most important facts at a glance. Now it is feasible to get an exact insight on the data to prove the visuals.
 
 All in all the application helps to visualize the case and supports the user to make a decision in an otherwise very confusing quantity of data.
 
-![Shiny App - Table](Additional_files/shiny_app_table.jpg){width:100%}
+![Shiny App - Table](Additional_files/shiny_app_table.jpg)
 
-## Download
+### Download
 The next tab has the purpose to download the dataset in the formats csv or xlsx.
 It is important to offer the user the possibility to choose between these filetypes because a csv is operating system independent and xlsx is just usable with the fitting application. On the other site, it is quite common and very user friendly. Moreover, the download allows the user to make their own evaluations and analyses with the data if necessary.
 
-![Shiny App - Download](Additional_files/shiny_app_download.jpg){width:100%}
+![Shiny App - Download](Additional_files/shiny_app_download.jpg)
 
 
 
