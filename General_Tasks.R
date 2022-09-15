@@ -37,10 +37,6 @@ init <- function() {
     install.packages("actuar")
     library(actuar)
   }
-  if (!require('purrr')) {
-    install.packages("purrr")
-    library(purrr)
-  }
   if (!require('plotly')) {
     install.packages("plotly")
     library(plotly)
@@ -114,15 +110,15 @@ delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
 fig <-
   plot_ly(
-    x = logistics_delay$Verzoegerung_in_Tagen,
+    x = delay_in_days,
     type = "histogram",
     nbinsx = 25,
     alpha = 0.8
   ) %>%
   layout(
-    yaxis = list(title = "Anzahl der Teile"),
-    xaxis = list(title = "Verspaetung in Tagen", tickmode = 'linear'),
-    title = "Plot: Verteilung der Verspaetung in Tagen"
+    yaxis = list(title = "Number of components"),
+    xaxis = list(title = "Logistics delay in days", tickmode = 'linear'),
+    title = "Plot: Distribution of the logistics delay in days"
   )
 
 fig
@@ -150,7 +146,7 @@ descdist(delay_in_days, discrete = TRUE, boot = 100)
 
 ## Step 2: Fit given distributions (Always norm the data to min = 0 because distributions start with 0)
 
-# https://www.youtube.com/watch?v=5klSpGC2puU
+# Src: https://www.youtube.com/watch?v=5klSpGC2puU
 
 dists <- c("nbinom", "pois", "norm")
 fit <- list()
@@ -402,13 +398,25 @@ for (i in 1:length(dists)) {
 # b)  Determine the mean of the logistics delay (watch out for weekends). Please interpret this number and discuss possible alternatives.
 #################################################################################################################################
 
+sprintf("On average, the logistics delay is %s days.",
+        format(round(
+          mean(logistics_delay$Verzoegerung_in_Tagen), 2
+        ), nsmall = 2))
+
 ################################################################################################################################
 # Aufgabe 1
 # c)  Visualize the distribution in an appropriate way by displaying the histogram and the density function using “plotly”.
 #     Please describe how you selected the size of the bins.
 #################################################################################################################################
 
+
+# calculate kernel density estimates for the delay
+# choose smoothing bandwidth (standard derivation of the smoothing kernel) so that the density function doesn't over- or underfit
+
 delay_density <- density(delay_in_days, bw = 0.5)
+
+# plot histogram and density function
+# since the delay in days is no continuous variable, but rather discrete values, we have as many bins as discrete values and the binwidth is 1
 
 plot_ly(x = delay_in_days, type = "histogram", name = "Histogram") %>%
   add_trace(
@@ -598,15 +606,20 @@ Bestandteile_Komponenten <-
 #Komponente_K2LE2 <- read_delim(I(Komponente_K2LE2), delim = "\\", trim_ws = TRUE)
 #Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
 
-Autos_mit_T16 <- adelshofen_zulassungen %>%
+Verbaute_T16 <- adelshofen_zulassungen %>%
   merge(Bestandteil_Fahrzeuge, by.x = "IDNummer", by.y = "ID_Fahrzeug") %>%
   merge(Bestandteile_Komponenten, by.x = "ID_Sitze", by.y = "ID_Komponente") %>%
   filter(ID_T16 %in% ids_t16)
 
-Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
+Unique_Verbaute_T16 <- unique(Verbaute_T16$ID_T16)
 
-Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
-#  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
+Anzahl_Unique_Verbaute_T16 <- length(Unique_Verbaute_T16)
+#  Angemeldete Fahrzeuge 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
+
+sprintf(
+  "%s parts T16 ended up in vehicles registered in Adelshofen.",
+  Anzahl_Unique_Verbaute_T16
+)
 
 ################################################################################################################################
 # Aufgabe 4
@@ -712,10 +725,13 @@ result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
   filter(ID_Karosserie == gesuchte_karosserie) %>%
   inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
 
+reformated_registration_date <-
+  format(as.Date(result_row$Zulassung), "%d.%m.%Y")
+
 sprintf(
-  "Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",
+  "The vehicle [%s] with the body part [%s] was registered on %s in %s.",
   result_row["IDNummer"],
   gesuchte_karosserie,
-  result_row["Zulassung"],
+  reformated_registration_date,
   result_row["Gemeinden"]
 )

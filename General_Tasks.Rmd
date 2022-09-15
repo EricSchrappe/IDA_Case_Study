@@ -25,7 +25,6 @@ install_load(
   "here",
   "ggplot2",
   "fitdistrplus",
-  "purrr",
   "plotly",
   "actuar"
 )
@@ -103,15 +102,15 @@ delay_in_days <- logistics_delay$Verzoegerung_in_Tagen
 
 fig <-
   plot_ly(
-    x = logistics_delay$Verzoegerung_in_Tagen,
+    x = delay_in_days,
     type = "histogram",
     nbinsx = 25,
     alpha = 0.8
   ) %>%
   layout(
-    yaxis = list(title = "Anzahl der Teile"),
-    xaxis = list(title = "Verspaetung in Tagen", tickmode = 'linear'),
-    title = "Plot: Verteilung der Verspaetung in Tagen"
+    yaxis = list(title = "Number of components"),
+    xaxis = list(title = "Logistics delay in days", tickmode = 'linear'),
+    title = "Plot: Distribution of the logistics delay in days"
   )
 
 fig
@@ -130,7 +129,7 @@ descdist(delay_in_days, discrete = TRUE, boot = 100)
 
 ## Step 2: Fit given distributions (Always norm the data to min = 0 because distributions start with 0)
 
-# https://www.youtube.com/watch?v=5klSpGC2puU
+# Src: https://www.youtube.com/watch?v=5klSpGC2puU
 
 dists <- c("nbinom", "pois", "norm")
 fit <- list()
@@ -273,8 +272,12 @@ They all have certain advantages for specific use cases.
 
 c) Visualize the distribution in an appropriate way by displaying the histogram and the density function using “plotly”. Please describe how you selected the size of the bins.
 ```{r, warning=FALSE,message=FALSE}
+# calculate kernel density estimates for the delay
+# choose smoothing bandwidth (standard derivation of the smoothing kernel) so that the density function doesn't over- or underfit
 delay_density <- density(delay_in_days, bw = 0.5)
 
+# plot histogram and density function
+# since the delay in days is no continuous variable, but rather discrete values, we have as many bins as discrete values and the binwidth is 1
 plot_ly(x = delay_in_days, type = "histogram", name = "Histogram") %>%
   add_trace(
     x = delay_density$x,
@@ -289,41 +292,17 @@ plot_ly(x = delay_in_days, type = "histogram", name = "Histogram") %>%
 
 ```
 
-Since the values in the data are discrete, and there are not many different values in the dataset, we can set the number of bins in a way that each bin has a singular corresponding value.
+Since the values in the data are discrete and there are not many different values in the dataset, we can set the number of bins in a way that each bin has a singular corresponding value. In our code the bin width is set implicitly.
 
 d) Please describe how you proceed, if you have to create a decision tree, which is describing the classification problem to classify whether the component (K7) is defective (Fehlerhaft) or not? (Hint: You might want to work with visualizations.)
 
 Decision Tree based on single part failure
 Generally speaking, a way to safely determine that a component is faulty is to look at the single parts it is made of. If at least one of these single parts is faulty, it follows that the component as a whole is faulty. This logic can be shown in form of a decision tree.
 The component in this case, component K7, is made up of the single parts T34, T35, T38, T39, and T40. The following decision tree results.
-![Decision Tree](images/decision_tree.jpg){width:80%}
 
+![Decision Tree](Additional_files/decision_tree.jpg)
 
-Decision Tree with Machine Learning
-In machine learning, classification refers to a predictive modeling problem where a class label is predicted for a given example of input data. In the component K7 we have the label "Fehlerhaft" and all input data, all columns except "Fehlerhaft. Classification requires a training dataset with many examples of inputs and outputs from which to learn. In the present case, we can use our existing data as a training dataset. A model will use the training dataset and will calculate how to best map examples of input data to specific class labels. As such, the training dataset must be sufficiently representative of the problem. The labels should be mapped to a numeric value, like '0' for 'Fehlerhaft' and '1' for 'Nicht Fehlerhaft'.There is no good theory on how to map algorithms onto problem types, instead, it is  recommended that a practitioner use controlled experiments and discover which algorithm and algorithm configuration results in the best performance for a given classification task. Classification predictive modeling algorithms are evaluated based on their results. 
-
-
-
-Regarding our given data, we can have a closer look at the binary logistical regression classification, which typically measures the relationship between the categorical target variable and one or more independent variables. It is useful for situations in which the outcome for a target variable can have only two possible types (in other words, it is binary), like explained above, '0' and '1'. Not only does binary logistic regression allow you to assess how well your set of variables predicts your categorical dependent variable and determine the “goodness-of-fit” of your model as does regular linear regression, but also it provides a summary of the accuracy of the classification of cases, which helps you determine the percent of predictions made from this model/equation that will be correct.
-
-The predicted Y (notating Yc) stands for the predicted probability that the result is a “1.” And, of course, a probability must be between 0 and 1 (or, 0–100%), by definition. In a “regular” simple linear regression, our regression line is
-
-Yc = a + bX
-
-So, in essence, we have a linear regression equation, or, if there are several X’s (up to n) like in our case:
-
-Yc = a + b1X1 + b2X2 + ... + bnXn
-
-The criterion of maximum likelihood estimation finds values of “a” and “b” that maximize the probability of obtaining the sample data you actually have. In R, after checking and cleaning our dataset, we can use the function glm(). glm() is used to fit generalized linear models, specified by giving a symbolic description of the linear predictor and a description of the error distribution. For the "formula" input, we can use "binominal" for binary logistical regression. 
-It is common to model a binary classification task with a model that predicts a Bernoulli probability distribution for each example.The Bernoulli distribution is a discrete probability distribution that covers a case where an event will have a binary outcome as either a 0 or 1. For classification, this means that the model predicts a probability of an example belonging to class 1, or the abnormal state. This is illustrated in picture 1. 
-
-![Picture 1: Linear vs. logistic regression](./images/linearvslogistic.jpeg)
-
-The difference between the linear and the logistic regression is clear. Since we have two absolute values, 0 and 1 or 'Faulty' and 'Not Faulty', we have decided to use the logistic regression. Our Y thus defines the probability curve with which a part is 'Faulty' or 'Not Faulty'. If a value is calculated from the input data that is above the curve of Y, we conclude a 1 and the part would therefore not be faulty. On the other hand, if we are in the area below the curve, it is a 'Faulty' part, i.e. a 0. 
-
-
-
-
+One possible approach to classification in machine learning would be binary logistical regression classification. Binary logistic regression is useful in the analysis of multiple factors influencing a negative/positive outcome, or any other classification where there are only two possible outcomes. Since we only have the outcomes 'Fehlerhaft' and 'Nicht Fehlerhaft', this concept can also be implemented for classification in R.
 
 # Question 2
 
@@ -422,29 +401,24 @@ Bestandteile_Komponenten <-
   rbind(Bestandteile_Komponente_K2LE2,
         Bestandteile_Komponente_K2ST2)
 
-# (Seem to have same data)
-#Komponente_K2LE2 <- readLines(here("Data", "Komponente", "KOmponente_K2LE2.txt"))
-#Komponente_K2LE2[1] <- paste0('"ID"\\', Komponente_K2LE2[1])
-#Komponente_K2LE2 <- gsub(x = Komponente_K2LE2, pattern = "\\s", replacement = "")
-#Komponente_K2LE2 <- read_delim(I(Komponente_K2LE2), delim = "\\", trim_ws = TRUE)
-#Komponente_K2ST2 <- read.csv2(here("Data", "Komponente", "Bestandteile_Komponente_K2ST2.csv"))
-
-Autos_mit_T16 <- adelshofen_zulassungen %>%
+Verbaute_T16 <- adelshofen_zulassungen %>%
   merge(Bestandteil_Fahrzeuge, by.x = "IDNummer", by.y = "ID_Fahrzeug") %>%
   merge(Bestandteile_Komponenten, by.x = "ID_Sitze", by.y = "ID_Komponente") %>%
   filter(ID_T16 %in% ids_t16)
 
-Unique_Autos_mit_T16 <- unique(Autos_mit_T16$IDNummer)
+Unique_Verbaute_T16 <- unique(Verbaute_T16$ID_T16)
 
-Anzahl_Unique_Autos_mit_T16 <- length(Unique_Autos_mit_T16)
+Anzahl_Unique_Verbaute_T16 <- length(Unique_Verbaute_T16)
+#  Angemeldete Fahrzeuge 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
 
 sprintf(
-  "Es wurden %s Autos in Adelshofen zugelassen, die Komponenten T16 enthalten",
-  length(Unique_Autos_mit_T16)
+  "%s parts T16 ended up in vehicles registered in Adelshofen.",
+  Anzahl_Unique_Verbaute_T16
 )
-#  Ang. Fahrzeug 1:1 Komponente in Fahrzeug 1:1 Einzelteil in Komponente
 ```
 
+On examining the data we found the following relationship:
+There is max. 1 part T16 in the componens K2ST2 and K2LE2. Vehicles can contain either one K2ST2 or one K2LE2 component. Thus, there is a 1:1 relationship along this line. As a result, the number of T16 parts included in vehicles in Adelshofen equals the number of vehicles in Adelshofen that contain a T16 part.
 
 # Question 4 
 Which data types do the attributes of the registration table “Zulassungen_aller_Fahrzeuge” have? Put your answers into a table which is integrated into your Markdown document and describe the characteristics of the data type(s).
@@ -542,11 +516,14 @@ result_row <- Bestandteile_Fahrzeuge_OEM1_Typ12 %>%
   filter(ID_Karosserie == gesuchte_karosserie) %>%
   inner_join(alle_zulassungen, by.x = "ID_Fahrzeug", by.y = "IDNummer")
 
+reformated_registration_date <-
+  format(as.Date(result_row$Zulassung), "%d.%m.%Y")
+
 sprintf(
-  "Das Fahrzeug [%s] mit der gesuchten Karosserie [%s] wurde %s in der Gemeinde %s zugelassen",
+  "The vehicle [%s] with the body part [%s] was registered on %s in %s.",
   result_row["IDNummer"],
   gesuchte_karosserie,
-  result_row["Zulassung"],
+  reformated_registration_date,
   result_row["Gemeinden"]
 )
 ```
