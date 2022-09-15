@@ -9,12 +9,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Include Packages
-```{r}
+```{r, message = FALSE, echo = FALSE}
 if (!require(install.load)){
   install.packages("install.load")
 }
 library(install.load)
-install_load("tidyverse", "geosphere")
+install_load("tidyverse", "geosphere", "here")
+print("Successfully loaded all packages!")
 ```
 
 # Load the required datasets for the analysis
@@ -45,21 +46,15 @@ Our approach divided into several step in order to select the relevant data sets
 ![Data sets Relationships](Additional_files/Dataset_relationships.jpeg){width:80%}
 6. Step: Since we are only working with flat files (CSV & TXT), we load the identified data sets with the R package "readr" (included in the R package "tidyverse") to increase speed and efficiency
 
-```{r}
-# Creating a path variable to import the multiple data sets more easily
-path <- "/Users/ericschrappe/Documents/Uni/Master/TU-Berlin/4. Semester/Introduction to Data Analytics/Case_Study"
-
-# Improvements
-# 1. Check the separator before loading the entire data set
-
+```{r, message = FALSE, echo = FALSE}
 
 # Relevant CSV file for the identified vehicle type
-rval_vehicle_data <- read_csv(file.path(path, "Data/Fahrzeug/Fahrzeuge_OEM1_Typ11.csv"), col_names= TRUE, trim_ws= TRUE) %>% 
+rval_vehicle_data <- read_csv(here("Data", "Fahrzeug", "Fahrzeuge_OEM1_Typ11.csv"), col_names= TRUE, trim_ws= TRUE) %>% 
   select("ID_Fahrzeug", "Fehlerhaft")
 
 # Junction table for relationship between vehicle and component
 # Based on problem statement, table size and number of dimensions was reduced to save memory space
-junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+junction_table_vehicle <- read_csv2(here("Data", "Fahrzeug", "Bestandteile_Fahrzeuge_OEM1_Typ11.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select("ID_Motor", "ID_Fahrzeug") %>% 
   filter(str_detect(ID_Motor, "^K1DI1"))
 
@@ -67,7 +62,7 @@ junction_table_vehicle <- read_csv2(file.path(path, "Data/Fahrzeug/Bestandteile_
 # Structure of the table needed to be adjusted since each unique column was repeated after a certain amount of observations
 # Each row included one complete observation and NAs for remaining columns
 # In addition, only the specified time range was selected
-rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+rval_component_data <- read_csv(here("Data", "Komponente", "Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   mutate(ID_Motor = coalesce(ID_Motor.x, ID_Motor.y, ID_Motor)) %>%
   mutate(Produktionsdatum = coalesce(Produktionsdatum.x, Produktionsdatum.y, Produktionsdatum)) %>%
   mutate(Herstellernummer = coalesce(Herstellernummer.x, Herstellernummer.y, Herstellernummer)) %>%
@@ -79,21 +74,30 @@ rval_component_data <- read_csv(file.path(path, "Data/Komponente/Komponente_K1DI
   filter(Produktionsdatum >= "2010-09-21" & Produktionsdatum <= "2012-09-04")
 
 # Junction table for relationship between component and individual part
-junction_table_component <- read_csv2(file.path(path, "Data/Komponente/Bestandteile_Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+junction_table_component <- read_csv2(here("Data", "Komponente", "Bestandteile_Komponente_K1DI1.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1))
 
 # Relevant files for individual parts
 
-txt_t1 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T01.txt"))
+txt_t1 <- readLines(here("Data", "Einzelteil", "Einzelteil_T01.txt"))
+txt_t1 <- paste('"ID" | |', txt_t1)
 txtNew_t1 <- gsub(x = txt_t1, pattern = "\\s\\|\\s\\|\\s", replacement = ",")
+rm(txt_t1)
 txtNew_t1 <- gsub(x = txtNew_t1, pattern = "\\s", replacement = "\n")
 txtNew_t1 <- substring(txtNew_t1, 1, nchar(txtNew_t1)-1)
 
-rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE) 
+rval_part_t1 <- read_delim(I(txtNew_t1), delim = ",", trim_ws = TRUE)
+rval_part_t1 <- select(rval_part_t1, -1)
+rval_part_t1 <- rval_part_t1 %>% 
+                  select("ID_T01.x", "ID_T01.y", "ID_T01", "Fehlerhaft.x", "Fehlerhaft.y", "Fehlerhaft") %>% 
+                  mutate(ID_T01 = coalesce(ID_T01.x, ID_T01.y, ID_T01)) %>% 
+                  mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y, Fehlerhaft)) %>%
+                  select("ID_T01", "Fehlerhaft") %>%
+                  filter(Fehlerhaft == 1)
 
-rm(txt_t1, txtNew_t1)
+rm(txtNew_t1)
 
-txt_t2 <- readLines(file.path(path, "Data/Einzelteil/Einzelteil_T02.txt"))
+txt_t2 <- readLines(here("Data", "Einzelteil", "Einzelteil_T02.txt"))
 txtNew_t2 <- gsub(x = txt_t2, pattern = "\t\"[0-9]+\"\\s", replacement = "\n")
 txtNewe_t2 <- gsub(x = txtNew_t2, pattern = "\n\\s", replacement = "\n")
 txtNewer_t2 <- gsub(x = txtNewe_t2, pattern = "[ \t]+", replacement = ",")
@@ -108,25 +112,25 @@ rval_part_t2 <- read_delim(I(txtNewer_t2), delim = ",", trim_ws = TRUE) %>%
 
 rm(txt_t2, txtNew_t2, txtNewe_t2, txtNewer_t2)
 
-rval_part_t5 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T05.csv"), col_names=TRUE, trim_ws= TRUE) %>%
+rval_part_t5 <- read_csv(here("Data", "Einzelteil", "Einzelteil_T05.csv"), col_names=TRUE, trim_ws= TRUE) %>%
   select("ID_T05.x", "ID_T05.y", "Fehlerhaft.x", "Fehlerhaft.y") %>% 
   mutate(ID_T05 = coalesce(ID_T05.x, ID_T05.y)) %>% 
   mutate(Fehlerhaft = coalesce(Fehlerhaft.x, Fehlerhaft.y)) %>%
   select("ID_T05", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
-rval_part_t6 <- read_csv(file.path(path, "Data/Einzelteil/Einzelteil_T06.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+rval_part_t6 <- read_csv(here("Data", "Einzelteil", "Einzelteil_T06.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select("ID_T06", "Fehlerhaft") %>%
   filter(Fehlerhaft == 1)
 
 # Relevant file for car registration
 # Can filter the data to only include registrations for the vehicle type 11 & which were registered at least at the same day as the engine was produced
-rval_car_registrations <- read_csv2(file.path(path, "Data/Zulassungen/Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+rval_car_registrations <- read_csv2(here("Data", "Zulassungen", "Zulassungen_alle_Fahrzeuge.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1, Zulassung)) %>% 
   filter(str_detect(IDNummer, "^11-"))
 
 # Relevant file for geographical data
-rval_geo_data <- read_csv2(file.path(path, "Data/Geodaten/Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
+rval_geo_data <- read_csv2(here("Data", "Geodaten", "Geodaten_Gemeinden_v1.2_2017-08-22_TrR.csv"), col_names=TRUE, trim_ws= TRUE) %>% 
   select(-c(...1, X, Postleitzahl))
 
 # List of all variable to increase the efficiency for checking missing values
@@ -163,7 +167,7 @@ a. Investigating missing values
 3. Step: Adjust the data sets if necessary
 
 
-```{r}
+```{r, message = FALSE, echo = FALSE}
 # Function to check each column of the given data set for missing values
 na_test <- function(x){
   
@@ -209,7 +213,7 @@ b. Investigating data types and potentially converting them
 3. Step: Evaluate whether the data type of a column needs to be transformed
 
 
-```{r}
+```{r, message = FALSE, echo = FALSE}
 
 # 1. Step
 data_types <- function(x){
@@ -252,7 +256,7 @@ c. Remove potential duplicate data observations
 2. Step: Apply the function to all relevant datasets
 3. Step: Remove potential duplicates
 
-```{r}
+```{r, message = FALSE, echo = FALSE}
 
 # 1. Step
 duplicate_test <- function(dataframe){
@@ -298,7 +302,7 @@ d. Trim the data
 1. Step: Since some of the community names had numbers at the end of their name, they needed to be removed. This applies for the data sets "car registrations" as well as "geo data"
 
 
-```{r}
+```{r, message = FALSE, echo = FALSE}
 # 1. Step
 var_list[["car_registrations"]][["Gemeinden"]] <- gsub('[0-9]+', '', var_list[["car_registrations"]][["Gemeinden"]])
 
@@ -324,9 +328,17 @@ e. Graphs for the important features
 plot_defective <- function(dataframe){
   if("Fehlerhaft" %in% colnames(dataframe)){
     if(length(dataframe[["Fehlerhaft"]]) != length(which(dataframe[["Fehlerhaft"]] == TRUE))){
-      ggplot(dataframe, aes(x=Fehlerhaft)) +
-      geom_bar() + 
-      geom_text(aes(label=..count..), stat="count", vjust= 1.5, colour= "white")
+      if("ID_Fahrzeug" %in% colnames(dataframe)){
+        ggplot(dataframe, aes(x=Fehlerhaft)) +
+        geom_bar() + 
+        geom_text(aes(label=..count..), stat="count", vjust= 1.5, colour= "white") +
+        ggtitle("Bar Chart - Vehicles defective")
+      }else{
+         ggplot(dataframe, aes(x=Fehlerhaft)) +
+        geom_bar() + 
+        geom_text(aes(label=..count..), stat="count", vjust= 1.5, colour= "white") +
+        ggtitle("Bar Chart - Components defective")
+      }
     }
   }
 }
@@ -345,7 +357,7 @@ lapply(var_list, plot_defective)
 5. Step: Bring everything together in one dataframe and calculate the distance between the communities and the center of Berlin (Long/Lat obtained from this website: https://www.umingo.de/deutschland/berlin/)
 
 
-```{r}
+```{r, message = FALSE, echo = FALSE}
 
 # 1. Step
 joined_vehicles <- var_list[["vehicle"]] %>% 
@@ -355,18 +367,30 @@ joined_components <- var_list[["components"]] %>%
                       inner_join(var_list[["junction_component"]], by= c("ID_Motor" = "ID_K1DI1"), suffix= c("", "_junction"))
 
 # 2. Step
-## Don't forget to also join T1, T2
-joined_components_parts <- joined_components %>% 
-                              left_join(var_list[["parts_t5"]], by=c("ID_T5" = "ID_T05"), suffix=c("_component", "_T5")) %>% 
-                              left_join(var_list[["parts_t6"]], by=c("ID_T6" = "ID_T06"), suffix=c("_component", "_T6")) %>% 
+joined_components_parts <- joined_components %>%
+                              left_join(var_list[["parts_t1"]], by=c("ID_T1" = "ID_T01")) %>%
+                              left_join(var_list[["parts_t2"]], by=c("ID_T2" = "ID_T02")) %>%
+                              left_join(var_list[["parts_t5"]], by=c("ID_T5" = "ID_T05")) %>% 
+                              left_join(var_list[["parts_t6"]], by=c("ID_T6" = "ID_T06")) %>%
+                              rename(Fehlerhaft_component = Fehlerhaft.x) %>% 
+                              rename(Fehlerhaft_T1 = Fehlerhaft.y) %>%
+                              rename(Fehlerhaft_T2 = Fehlerhaft.x.x) %>%
+                              rename(Fehlerhaft_T5 = Fehlerhaft.y.y) %>%
+                              rename(Fehlerhaft_T6 = Fehlerhaft) %>%
+                              mutate(Fehlerhaft_T1 = replace_na(Fehlerhaft_T1, FALSE)) %>%
+                              mutate(Fehlerhaft_T2 = replace_na(Fehlerhaft_T2, FALSE)) %>%
                               mutate(Fehlerhaft_T5 = replace_na(Fehlerhaft_T5, FALSE)) %>%
-                              mutate(Fehlerhaft = replace_na(Fehlerhaft, FALSE))
+                              mutate(Fehlerhaft_T6 = replace_na(Fehlerhaft_T6, FALSE))
 # 3. Step                        
 defective_vehicle_to_parts <- joined_vehicles %>% 
-                                inner_join(joined_components_parts, by=c("ID_Motor" = "ID_Motor"), suffix=c("_vehicle", "")) %>% 
+                                inner_join(joined_components_parts, by=c("ID_Motor" = "ID_Motor")) %>%
+                                rename(Fehlerhaft_vehicle = Fehlerhaft) %>% 
                                 mutate(Defect = ifelse(Fehlerhaft_vehicle == TRUE, TRUE,
                                                        ifelse(Fehlerhaft_component == TRUE, TRUE,
-                                                              ifelse(Fehlerhaft_T5 == TRUE | Fehlerhaft == TRUE, TRUE, FALSE))))
+                                                              ifelse(Fehlerhaft_T1 == TRUE | 
+                                                                     Fehlerhaft_T2 == TRUE |
+                                                                     Fehlerhaft_T5 == TRUE |
+                                                                     Fehlerhaft_T6 == TRUE, TRUE, FALSE))))
 
 # 4.Step
 car_registration_with_geo <- var_list[["car_registrations"]] %>% 
@@ -375,35 +399,52 @@ car_registration_with_geo <- var_list[["car_registrations"]] %>%
 # 5. Step
 entire_defective_data <- defective_vehicle_to_parts %>% 
                           inner_join(car_registration_with_geo, by = c("ID_Fahrzeug" = "IDNummer")) %>% 
-                          mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000) 
+                          mutate(Distance_KM = distHaversine(cbind(Laengengrad, Breitengrad), cbind(13.3777, 52.5162))/1000) %>% 
+                          select("ID_Fahrzeug", "Defect", "Gemeinden", "Laengengrad", "Breitengrad", "Distance_KM")
 
-#write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
+write_csv(entire_defective_data, file = "Final_dataset_group_25.csv")
 
-
-
-df <- data.frame(Gemeinden = character(),
-                 Defect = logical(),
-                 Total = numeric(),
-                 Radius = numeric())
-      
-# Loop through the amount of radii selected by the user
-for(x in 1:2){
-  
-  # Calculate the respective numbers
-  community_data <- entire_defective_data %>% 
-    filter(Distance_KM <= x*20) %>% 
-    group_by(Gemeinden,Defect) %>% 
-    summarise(Total = n()) %>% 
-    mutate(Radius = x*20)
-  
-  print(community_data)
-  df <- df %>% bind_rows(community_data)
-}
-
-df %>% 
-  filter(Gemeinden == "FEHRBELLIN")
-
- 
 
 ```
+
+
+# Evaluation & Results
+
+The result of the case-study can be seen in our shiny application.
+We chose just a lean layout including the given specifications because we want to set the main focus to the other tasks.
+To navigate through our tabs we used the navbarpage to get a top level navigation bar.
+
+## Map
+The first tab is the map, showing variably definable concentric circles around Berlin.
+By clicking the marker a popup appears displaying the number of registered vehicles in the "Gemeinde" and a plot showing the vehicles with diesel engines affected by the driving ban in relation to those not affected.
+It is our fist tab because you get a really good overview by getting insights with the popups at the same time. This helps the user to understand the magnitude of the problem and to classify its importance.
+
+![Shiny App - Map](Additional_files/shiny_app_map.jpg){width:100%}
+
+
+## Barplot
+The second tab is the interactive barplot. For each radius, the number of affected diesel-engined vehicles registered within that radius in relation to the unaffected vehicles is shown in the graphic. The number and the size of the radius can be chosen interactively.
+Here, the user gets an aggregated view to asses the full extent.
+
+![Shiny App - Bar Chart](Additional_files/shiny_app_bar_chart.jpg){width:100%}
+
+## Table
+In this tab we display the underlying data as table. We decided to show these attributes in the table because the user 
+is able to get the most important facts at a glance. Now it is feasible to get an exact insight on the data to prove the visuals.
+
+All in all the application helps to visualize the case and supports the user to make a decision in an otherwise very confusing quantity of data.
+
+![Shiny App - Table](Additional_files/shiny_app_table.jpg){width:100%}
+
+## Download
+The next tab has the purpose to download the dataset in the formats csv or xlsx.
+It is important to offer the user the possibility to choose between these filetypes because a csv is operating system independent and xlsx is just usable with the fitting application. On the other site, it is quite common and very user friendly. Moreover, the download allows the user to make their own evaluations and analyses with the data if necessary.
+
+![Shiny App - Download](Additional_files/shiny_app_download.jpg){width:100%}
+
+
+
+
+
+
 

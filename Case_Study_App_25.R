@@ -8,24 +8,29 @@
 #
 
 # Necessary libraries
-library(shiny)
-library(leaflet)
-library(leafpop)
-library(lattice)
-library(DT)
-library(tidyverse)
-library(writexl)
+
+if (!require(install.load)){
+  install.packages("install.load")
+}
+library(install.load)
+install_load("shiny", "leaflet", "leafpop", "lattice", "DT", "tidyverse", "writexl")
+print("Successfully loaded all packages!")
 
 # Loading the dataset and ensure that the object will be a dataframe
 dataset <- read_csv("Final_dataset_group_25.csv")
 dataset <- data.frame(dataset)
 
-# Erstellt einen temporären Ordner
+# Create temporarily available folder
 folder <- tempfile()
 dir.create(folder)
 
 # Define UI for application that shows a map, bar chart, the data table with all relevant columns as well as a download function
-ui <- navbarPage("Defective registered diesel-engine vehicles",
+ui <- navbarPage(
+         title = div(img(src="logo.png", height=35, width=35),
+         "Defective registered diesel-engine vehicles"),
+         tags$head(
+           includeCSS("Additional_files/shiny.css")
+         ),
                  
         # First clickable tap in the nav bar at the top of the application, which represents the map
         tabPanel("Map",
@@ -83,7 +88,14 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                  )
         ),
         
-        # Third clickable tap in the nav bar at the top of the application, which represents the download option of the data table
+        # Third clickable tap in the nav bar at the top of the application, which represents the data table
+        tabPanel("Table", 
+                 div(class="allround_padding",
+                     DTOutput("table")
+                 ),
+        ),
+        
+        # Fourth clickable tap in the nav bar at the top of the application, which represents the download option of the data table
         tabPanel("Download",
                  fluidPage(
                    selectInput("format",
@@ -92,13 +104,6 @@ ui <- navbarPage("Defective registered diesel-engine vehicles",
                    ),
                    downloadButton("downloadData", "Download data")
                  ),
-        ),
-        
-        # Fourth clickable tap in the nav bar at the top of the application, which represents the data table
-        tabPanel("Table", 
-                 div(class="allround_padding",
-                     DTOutput("table")
-                ),
         ),
 )
 
@@ -221,7 +226,7 @@ server <- function(input, output) {
     
     map_click_plot <- reactive({
       click <- input$map_marker_click
-      print(click)
+  
       if(is.null(click$id)){
         return()
       }else{
@@ -231,14 +236,13 @@ server <- function(input, output) {
                               geom_col() +
                               geom_text(aes(label= Total), vjust = 1.5, colour = "white")
         
-        print(filtered_chart)
         return(filtered_chart)
       }
     })
     
     map_click_registrations <- reactive({
       click <- input$map_marker_click
-      print(click)
+      
       if(is.null(click$id)){
         return()
       }else{
@@ -247,7 +251,6 @@ server <- function(input, output) {
                                 group_by(Gemeinden, Radius) %>% 
                                 summarise(Total = sum(Total))
         
-        print(click_registrations)
         return(click_registrations)
       }
     })
@@ -298,7 +301,18 @@ server <- function(input, output) {
         df <- plot_data()
       
         ggplot(df, aes(x=as.factor(Bucket), y=Count, fill=Defect_Y_N))+
-          geom_bar(stat = "identity", position = "dodge")
+          geom_bar(stat = "identity", position = position_dodge()) + 
+          geom_text(aes(label=Count), vjust=1.6, color="white",
+                    position = position_dodge(0.9), size=4) +
+          ggtitle("Affected/non-affected vehicles per radius") +
+          ylab("Number of diesel-engined vehicles") +
+          xlab("Radius in km") +
+          scale_fill_discrete(name="State", labels = c("affected", "uneffected")) +
+          theme(
+            plot.title = element_text(size = 16, face = "bold.italic", hjust = 0.5),
+            axis.title.x = element_text(size = 12),
+            axis.title.y = element_text(size = 12)
+          )
     })
     
     # Create the download output
